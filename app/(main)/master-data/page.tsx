@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 export default function MasterDataPage() {
   const [categories, setCategories] = useState<{id: number, name: string, icon?: string}[]>([])
   const [companies, setCompanies] = useState<{id: number, name: string}[]>([])
+  const [categoryError, setCategoryError] = useState('')
   
   const [newCat, setNewCat] = useState('')
   const [newCatIcon, setNewCatIcon] = useState('fa-wine-bottle')
@@ -24,11 +25,17 @@ export default function MasterDataPage() {
   const handleAddCategory = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newCat.trim()) return
-    await fetch('/api/categories', {
+    setCategoryError('')
+    const res = await fetch('/api/categories', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: newCat, icon: newCatIcon })
     })
+    if (!res.ok) {
+      const data = await res.json().catch(() => null)
+      setCategoryError(data?.error || 'เพิ่มหมวดหมู่ไม่สำเร็จ')
+      return
+    }
     setNewCat('')
     setNewCatIcon('fa-wine-bottle')
     fetchCategories()
@@ -42,11 +49,17 @@ export default function MasterDataPage() {
 
   const handleUpdateCategory = async (id: number) => {
     if (!editingCatName.trim()) return
-    await fetch(`/api/categories/${id}`, {
+    setCategoryError('')
+    const res = await fetch(`/api/categories/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: editingCatName, icon: editingCatIcon })
     })
+    if (!res.ok) {
+      const data = await res.json().catch(() => null)
+      setCategoryError(data?.error || 'แก้ไขหมวดหมู่ไม่สำเร็จ')
+      return
+    }
     setEditingCatId(null)
     fetchCategories()
   }
@@ -113,6 +126,11 @@ export default function MasterDataPage() {
               เพิ่ม
             </button>
           </form>
+          {categoryError && (
+            <p className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+              {categoryError}
+            </p>
+          )}
 
           <div className="flex-1 overflow-y-auto max-h-[500px]">
             <table className="w-full text-left">

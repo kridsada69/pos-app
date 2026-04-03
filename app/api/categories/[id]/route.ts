@@ -14,6 +14,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json(updatedCategory)
   } catch (error) {
     console.error('Error updating category:', error)
+    if (typeof error === 'object' && error && 'code' in error && error.code === 'P2002') {
+      return NextResponse.json({ error: 'มีหมวดหมู่ที่ใช้ชื่อและประเภทนี้อยู่แล้ว' }, { status: 409 })
+    }
     return NextResponse.json({ error: 'Failed to update category' }, { status: 500 })
   }
 }

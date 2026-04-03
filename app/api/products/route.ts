@@ -11,7 +11,9 @@ export async function GET(request: Request) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
 
-    const where: any = {}
+    const where: any = {
+      deletedAt: null
+    }
 
     if (search) {
       where.name = { contains: search }
