@@ -7,7 +7,7 @@ const prisma = new PrismaClient()
 async function main() {
   const passwordHash = await bcrypt.hash('123456', 10)
 
-  const defaultUser = await prisma.user.upsert({
+  await prisma.user.upsert({
     where: { username: 'somchai' },
     update: {},
     create: {
@@ -47,6 +47,7 @@ async function main() {
         imageIcon: 'fa-wine-bottle',
       },
     ],
+    skipDuplicates: true,
   })
 
   console.log('Seed executed successfully')

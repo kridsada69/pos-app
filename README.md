@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+This is a POS app built with Next.js, Prisma, and PostgreSQL.
 
-## Getting Started
+## Local setup
 
-First, run the development server:
+1. Copy the environment file and adjust secrets if needed.
+
+```bash
+cp .env.example .env
+```
+
+2. Start PostgreSQL locally with Docker.
+
+```bash
+docker compose up -d
+```
+
+3. Install dependencies, sync the schema, and seed sample data.
+
+```bash
+npm install
+npm run db:setup
+```
+
+4. Run the development server.
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Default seeded login:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Username: `somchai`
+- Password: `123456`
 
-## Learn More
+## Deploy notes
 
-To learn more about Next.js, take a look at the following resources:
+For production, set `DATABASE_URL` to a managed PostgreSQL database such as Neon or Supabase, and set a strong `SESSION_SECRET`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The app is already configured with `output: 'standalone'`, so you can build and run it with:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run build
+node server.js
+```
 
-## Deploy on Vercel
+You can also package the standalone output for traditional hosting:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm run deploy:package
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Notes
+
+- Local uploads are still stored in `public/uploads/`.
+- For serverless hosting, move uploads to object storage before going live.
+- If you changed Prisma providers or datasource settings, rerun `npm run db:generate` before starting the app.

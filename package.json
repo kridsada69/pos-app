@@ -9,9 +9,10 @@
     "lint": "eslint",
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
-    "db:push": "prisma db push",
+    "db:push": "prisma generate && prisma db push",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
+    "db:setup": "prisma generate && prisma db push && tsx prisma/seed.ts",
     "deploy:package": "bash scripts/package-deploy.sh"
   },
   "dependencies": {

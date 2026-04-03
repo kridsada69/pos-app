@@ -17,10 +17,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, user: { id: user.id, username: user.username, name: user.name } })
   } catch (error) {
-    console.error('Register route failed', {
-      error,
-      databaseUrl: process.env.DATABASE_URL,
-    })
+    console.error('Register route failed', { error })
 
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }

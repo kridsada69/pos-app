@@ -1,7 +1,12 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 
-const secretKey = "super_secret_pos_key_for_dev";
+const secretKey = process.env.SESSION_SECRET;
+
+if (!secretKey) {
+  throw new Error("SESSION_SECRET is not set");
+}
+
 const key = new TextEncoder().encode(secretKey);
 
 export async function encrypt(payload: any) {
