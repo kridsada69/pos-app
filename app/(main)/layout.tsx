@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
@@ -9,17 +9,12 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const pathname = usePathname()
   const { user, logout, loading } = useAuth()
 
-  useEffect(() => {
-    if (isSidebarOpen) {
-      setIsSidebarOpen(false)
-    }
-  }, [pathname])
-
   if (loading) return null;
 
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: 'fa-chart-line', match: ['/dashboard'] },
     { name: 'คิดเงิน (POS)', path: '/pos', icon: 'fa-cash-register', match: ['/pos'] },
+    { name: 'โปรโมชั่น-Promotion', path: '/promotion', icon: 'fa-tags', match: ['/promotion'] },
     { name: 'ประวัติการขาย', path: '/history', icon: 'fa-history', match: ['/history'] },
     { name: 'สต็อกสินค้า', path: '/stock', icon: 'fa-boxes', match: ['/stock'] },
     { name: 'ข้อมูลพื้นฐาน', path: '/master-data', icon: 'fa-database', match: ['/master-data'] },
@@ -61,6 +56,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             const isActive = item.match.some(m => pathname.startsWith(m))
             return (
               <Link key={item.path} href={item.path}
+                onClick={() => setIsSidebarOpen(false)}
                 className={`w-full flex items-center px-4 py-4 rounded-2xl transition-all group ${isActive ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-blue-50 hover:text-blue-600'}`}>
                 <div className={`w-10 h-10 flex items-center justify-center rounded-xl mr-3 transition-colors ${isActive ? 'bg-white' : 'bg-slate-50 group-hover:bg-white'}`}>
                   <i className={`fas ${item.icon}`}></i>

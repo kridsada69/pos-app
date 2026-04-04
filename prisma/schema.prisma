@@ -15,8 +15,8 @@ model User {
   email     String   @unique
   mobile    String   @unique
   password  String
-  orders    Order[]
   createdAt DateTime @default(now())
+  orders    Order[]
 }
 
 model Product {
@@ -34,33 +34,36 @@ model Product {
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
   orderItems OrderItem[]
+  promotions PromotionProduct[]
 }
 
 model Order {
   id                Int         @id @default(autoincrement())
-  subtotal          Float       @default(0)
-  promotionLabel    String?
-  promotionDiscount Float       @default(0)
-  manualDiscount    Float       @default(0)
-  note              String?
-  tax               Float       @default(0)
   total             Float
   cashierId         Int
-  cashier           User        @relation(fields: [cashierId], references: [id])
-  items             OrderItem[]
   slipUrl           String?
   status            String      @default("active")
   createdAt         DateTime    @default(now())
+  manualDiscount    Float       @default(0)
+  note              String?
+  promotionDiscount Float       @default(0)
+  promotionLabel    String?
+  promotionId       Int?
+  subtotal          Float       @default(0)
+  tax               Float       @default(0)
+  cashier           User        @relation(fields: [cashierId], references: [id])
+  items             OrderItem[]
+  promotion         Promotion?  @relation(fields: [promotionId], references: [id])
 }
 
 model OrderItem {
   id        Int     @id @default(autoincrement())
   orderId   Int
-  order     Order   @relation(fields: [orderId], references: [id])
   productId Int
-  product   Product @relation(fields: [productId], references: [id])
   quantity  Int
   price     Float
+  order     Order   @relation(fields: [orderId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
 }
 
 model Category {
@@ -76,4 +79,26 @@ model Company {
   id        Int      @id @default(autoincrement())
   name      String   @unique
   createdAt DateTime @default(now())
+}
+
+model Promotion {
+  id                  Int                @id @default(autoincrement())
+  name                String
+  requiredQuantity    Int
+  bundlePrice         Float
+  appliesToAllProducts Boolean           @default(false)
+  isActive            Boolean            @default(true)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  products            PromotionProduct[]
+  orders              Order[]
+}
+
+model PromotionProduct {
+  promotionId Int
+  productId   Int
+  promotion   Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([promotionId, productId])
 }

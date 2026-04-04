@@ -1,8 +1,34 @@
 "use client"
 import React, { useState, useEffect } from 'react'
 
+type OrderItem = {
+  id: number
+  quantity: number
+  price: number
+  product?: {
+    name?: string | null
+  } | null
+}
+
+type Order = {
+  id: number
+  total: number
+  createdAt: string
+  subtotal?: number | null
+  promotionDiscount?: number | null
+  promotionLabel?: string | null
+  manualDiscount?: number | null
+  tax?: number | null
+  note?: string | null
+  slipUrl?: string | null
+  cashier?: {
+    name?: string | null
+  } | null
+  items: OrderItem[]
+}
+
 export default function HistoryPage() {
-  const [orders, setOrders] = useState<any[]>([])
+  const [orders, setOrders] = useState<Order[]>([])
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isUploading, setIsUploading] = useState<number | null>(null)
@@ -21,7 +47,7 @@ export default function HistoryPage() {
   }, [fetchOrders])
   
   // Group orders by date
-  const groupedOrders = orders.reduce((groups: any, order: any) => {
+  const groupedOrders = orders.reduce<Record<string, Order[]>>((groups, order) => {
     const dateStr = new Date(order.createdAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })
     if (!groups[dateStr]) groups[dateStr] = []
     groups[dateStr].push(order)
@@ -144,7 +170,7 @@ export default function HistoryPage() {
       <div className="space-y-8">
         {Object.keys(groupedOrders).map(dateStr => {
           const dayOrders = groupedOrders[dateStr]
-          const dayTotal = dayOrders.reduce((sum: number, o: any) => sum + o.total, 0)
+          const dayTotal = dayOrders.reduce((sum, order) => sum + order.total, 0)
           const dayCount = dayOrders.length
           return (
           <div key={dateStr} className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
@@ -171,7 +197,7 @@ export default function HistoryPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {groupedOrders[dateStr].map((order: any) => (
+                  {groupedOrders[dateStr].map((order) => (
                     <React.Fragment key={order.id}>
                       <tr 
                         onClick={() => setExpandedId(expandedId === order.id ? null : order.id)}
@@ -179,7 +205,16 @@ export default function HistoryPage() {
                       >
                         <td className="px-6 py-5 font-bold text-blue-600">#INV-{order.id.toString().padStart(4, '0')}</td>
                         <td className="px-6 py-5 text-sm text-slate-600 font-medium">{new Date(order.createdAt).toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'})} น.</td>
-                        <td className="px-6 py-5 text-sm font-bold text-slate-700 flex items-center"><i className="fas fa-user-circle text-slate-300 mr-2 text-lg"></i> {order.cashier?.name}</td>
+                        <td className="px-6 py-5 text-sm font-bold text-slate-700">
+                          <div className="flex items-center">
+                            <i className="fas fa-user-circle text-slate-300 mr-2 text-lg"></i> {order.cashier?.name}
+                          </div>
+                          {order.promotionLabel && (
+                            <div className="mt-2 inline-flex rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-bold text-emerald-600">
+                              ใช้โปร: {order.promotionLabel}
+                            </div>
+                          )}
+                        </td>
                         <td className="px-6 py-5 font-black text-slate-800 text-right">฿ {order.total.toFixed(2)}</td>
                         <td className="px-6 py-5 text-right text-slate-300"><i className={`fas fa-chevron-${expandedId === order.id ? 'up' : 'down'}`}></i></td>
                       </tr>
@@ -191,7 +226,7 @@ export default function HistoryPage() {
                               <div className="flex-1">
                                 <h4 className="font-bold text-sm text-slate-500 mb-4 uppercase tracking-wide">รายการสินค้า</h4>
                                 <div className="space-y-3 bg-white p-4 rounded-2xl border border-slate-100">
-                                  {order.items.map((item: any) => (
+                                  {order.items.map((item) => (
                                     <div key={item.id} className="flex justify-between items-center text-sm">
                                       <div className="font-semibold text-slate-700">
                                         <span className="text-blue-500 bg-blue-50 px-2 py-1 rounded-md text-xs mr-2">{item.quantity}x</span>
@@ -236,7 +271,12 @@ export default function HistoryPage() {
                                   <div className="space-y-3 text-sm">
                                     <div>
                                       <p className="text-xs font-bold text-slate-400 mb-1">โปรโมชัน</p>
-                                      <p className="font-semibold text-slate-700">{order.promotionLabel || 'ไม่มี'}</p>
+                                      <p className="font-semibold text-slate-700">{order.promotionLabel || 'ไม่มีโปรโมชั่น'}</p>
+                                      {!!order.promotionDiscount && (
+                                        <p className="mt-1 text-xs font-bold text-emerald-600">
+                                          ลดไป {formatCurrency(order.promotionDiscount)}
+                                        </p>
+                                      )}
                                     </div>
                                     <div>
                                       <p className="text-xs font-bold text-slate-400 mb-1">หมายเหตุ</p>

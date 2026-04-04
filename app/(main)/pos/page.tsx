@@ -2,6 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
+import {
+  calculatePromotionOutcome,
+  getBestPromotionStack,
+  type AppliedPromotion,
+  type PromotionDefinition,
+} from '@/lib/promotion-utils'
 
 type Product = {
   id: number
@@ -19,29 +25,24 @@ type CartItem = {
   price: number
 }
 
-type PromotionKey = 'twoCans' | 'sixCans'
-
-const promotionDetails: Record<PromotionKey, { label: string; description: string }> = {
-  twoCans: {
-    label: 'โปรแมวสลิด 2 กระป๋อง 200 บาท',
-    description: 'เมื่อซื้อกระป๋องตั้งแต่ 2 ชิ้นขึ้นไป จะคิดราคากระป๋องละ 100 บาท',
-  },
-  sixCans: {
-    label: 'โปร 5 แถม 1 ลด 150 บาท',
-    description: 'เมื่อซื้อกระป๋องครบ 6 ชิ้น จะลดเพิ่ม 150 บาท',
-  },
+type Category = {
+  id: number
+  name: string
+  icon?: string
 }
+
+type Promotion = PromotionDefinition
 
 export default function POSPage() {
   const [products, setProducts] = useState<Product[]>([])
-  const [categories, setCategories] = useState<{ id: number; name: string; icon?: string }[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
+  const [promotions, setPromotions] = useState<Promotion[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
   const [activeTypeTab, setActiveTypeTab] = useState('all')
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false)
   const [slipFile, setSlipFile] = useState<File | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isTaxEnabled, setIsTaxEnabled] = useState(false)
-  const [activePromotion, setActivePromotion] = useState<PromotionKey | null>(null)
   const [manualDiscountInput, setManualDiscountInput] = useState('')
   const [note, setNote] = useState('')
 
@@ -51,8 +52,15 @@ export default function POSPage() {
       .then((json) => setProducts(json.data || []))
   }
 
+  const fetchActivePromotions = () => {
+    fetch('/api/promotions?status=active')
+      .then((res) => res.json())
+      .then((json) => setPromotions(Array.isArray(json) ? json : []))
+  }
+
   useEffect(() => {
     fetchActiveProducts()
+    fetchActivePromotions()
     fetch('/api/categories').then((res) => res.json()).then(setCategories)
   }, [])
 
@@ -73,8 +81,8 @@ export default function POSPage() {
       prev
         .map((item) => {
           if (item.product.id === id) {
-            const newQ = item.quantity + delta
-            return { ...item, quantity: newQ }
+            const newQuantity = item.quantity + delta
+            return { ...item, quantity: newQuantity }
           }
           return item
         })
@@ -98,21 +106,6 @@ export default function POSPage() {
     if (galleryInput) galleryInput.value = ''
   }
 
-  const isCanProduct = (product: Product) => {
-    const category = categories.find((item) => item.name === product.category)
-    const normalizedCategoryName = product.category.trim().toLowerCase()
-    const normalizedProductName = product.name.trim().toLowerCase()
-
-    return (
-      category?.icon === 'fa-prescription-bottle' ||
-      product.imageIcon === 'fa-prescription-bottle' ||
-      normalizedCategoryName.includes('กระป๋อง') ||
-      normalizedCategoryName.includes('can') ||
-      normalizedProductName.includes('กระป๋อง') ||
-      normalizedProductName.includes('can')
-    )
-  }
-
   const getProductTypeLabel = (product: Product) => {
     const catInfo = categories.find((category) => category.name === product.category)
     const catIcon = catInfo?.icon || product.imageIcon || 'fa-box'
@@ -123,54 +116,56 @@ export default function POSPage() {
     return product.category || 'อื่นๆ'
   }
 
-  const productTypeTabs = useMemo(() => {
-    const labels = Array.from(new Set(products.map((product) => getProductTypeLabel(product))))
-    return ['all', ...labels]
-  }, [products, categories])
-
-  const filteredProducts = useMemo(() => {
-    if (activeTypeTab === 'all') return products
-    return products.filter((product) => getProductTypeLabel(product) === activeTypeTab)
-  }, [activeTypeTab, products, categories])
-
-  const canQuantity = cart.reduce((sum, item) => {
-    return sum + (isCanProduct(item.product) ? item.quantity : 0)
-  }, 0)
-
-  const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
-
-  const promotionDiscounts = useMemo(
-    () => ({
-      twoCans:
-        canQuantity >= 2
-          ? cart.reduce((sum, item) => {
-              if (!isCanProduct(item.product)) return sum
-              return sum + Math.max(item.price - 100, 0) * item.quantity
-            }, 0)
-          : 0,
-      sixCans: canQuantity >= 6 ? 150 : 0,
-    }),
-    [canQuantity, cart, categories]
+  const productTypeTabs = Array.from(
+    new Set(['all', ...products.map((product) => getProductTypeLabel(product))])
   )
 
-  const promotionDiscount = activePromotion ? promotionDiscounts[activePromotion] : 0
-  const promotionLabel = activePromotion ? promotionDetails[activePromotion].label : ''
+  const filteredProducts =
+    activeTypeTab === 'all'
+      ? products
+      : products.filter((product) => getProductTypeLabel(product) === activeTypeTab)
+
+  const subtotal = useMemo(
+    () => cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
+    [cart]
+  )
+
+  const promotionCartItems = useMemo(
+    () =>
+      cart.map((item) => ({
+        productId: item.product.id,
+        quantity: item.quantity,
+        price: item.price,
+        name: item.product.name,
+      })),
+    [cart]
+  )
+
+  const applicablePromotions = useMemo(
+    () =>
+      promotions
+        .map((promotion) => calculatePromotionOutcome(promotion, promotionCartItems))
+        .filter((promotion): promotion is AppliedPromotion => Boolean(promotion))
+        .sort((a, b) => b.promotionDiscount - a.promotionDiscount),
+    [promotionCartItems, promotions]
+  )
+
+  const promotionStack = useMemo(
+    () => getBestPromotionStack(promotions, promotionCartItems),
+    [promotionCartItems, promotions]
+  )
+
+  const appliedPromotions = promotionStack.appliedPromotions
+  const promotionDiscount = promotionStack.totalPromotionDiscount
+  const promotionLabel = promotionStack.promotionLabel
   const subtotalAfterPromotion = Math.max(subtotal - promotionDiscount, 0)
   const parsedManualDiscount = Number(manualDiscountInput)
-  const safeManualDiscount = Number.isFinite(parsedManualDiscount) && parsedManualDiscount > 0 ? parsedManualDiscount : 0
+  const safeManualDiscount =
+    Number.isFinite(parsedManualDiscount) && parsedManualDiscount > 0 ? parsedManualDiscount : 0
   const manualDiscount = Math.min(safeManualDiscount, subtotalAfterPromotion)
   const discountedSubtotal = Math.max(subtotalAfterPromotion - manualDiscount, 0)
   const tax = isTaxEnabled ? discountedSubtotal * 0.07 : 0
   const total = discountedSubtotal + tax
-
-  useEffect(() => {
-    if (activePromotion === 'twoCans' && canQuantity < 2) {
-      setActivePromotion(null)
-    }
-    if (activePromotion === 'sixCans' && canQuantity < 6) {
-      setActivePromotion(null)
-    }
-  }, [activePromotion, canQuantity])
 
   const confirmCheckout = async () => {
     if (cart.length === 0) return alert('No items in cart')
@@ -196,17 +191,12 @@ export default function POSPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          subtotal,
-          promotionLabel,
-          promotionDiscount,
           manualDiscount,
-          tax,
-          total,
           note: note.trim(),
+          isTaxEnabled,
           items: cart.map((item) => ({
             productId: item.product.id,
             quantity: item.quantity,
-            price: item.price,
           })),
           slipUrl,
         }),
@@ -216,14 +206,14 @@ export default function POSPage() {
         alert('ชำระเงินเรียบร้อย! ตัดสต็อกอัตโนมัติ')
         setCart([])
         setSlipFile(null)
-        setActivePromotion(null)
         setManualDiscountInput('')
         setNote('')
         setIsTaxEnabled(false)
         setIsConfirmModalOpen(false)
         fetchActiveProducts()
       } else {
-        alert('Checkout failed')
+        const data = await res.json().catch(() => null)
+        alert(data?.error || 'Checkout failed')
       }
     } catch (error) {
       console.error(error)
@@ -235,7 +225,7 @@ export default function POSPage() {
   return (
     <>
       <h2 className="text-3xl font-black text-slate-800 tracking-tight">เครื่องคิดเงิน</h2>
-      <p className="text-slate-500 text-sm mt-1 mb-8">เลือกสินค้าและสแกนจ่าย</p>
+      <p className="mb-8 mt-1 text-sm text-slate-500">เลือกสินค้าและสแกนจ่าย</p>
 
       <div className="flex flex-col gap-8 lg:flex-row">
         <div className="flex-1">
@@ -243,9 +233,10 @@ export default function POSPage() {
             {productTypeTabs.map((tab) => {
               const isActive = activeTypeTab === tab
               const label = tab === 'all' ? 'ทั้งหมด' : tab
-              const count = tab === 'all'
-                ? products.length
-                : products.filter((product) => getProductTypeLabel(product) === tab).length
+              const count =
+                tab === 'all'
+                  ? products.length
+                  : products.filter((product) => getProductTypeLabel(product) === tab).length
 
               return (
                 <button
@@ -258,7 +249,10 @@ export default function POSPage() {
                       : 'border-slate-200 bg-white text-slate-500 hover:border-blue-200 hover:text-blue-600'
                   }`}
                 >
-                  {label} <span className={`ml-1 ${isActive ? 'text-blue-100' : 'text-slate-300'}`}>({count})</span>
+                  {label}{' '}
+                  <span className={`ml-1 ${isActive ? 'text-blue-100' : 'text-slate-300'}`}>
+                    ({count})
+                  </span>
                 </button>
               )
             })}
@@ -267,7 +261,7 @@ export default function POSPage() {
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
             {filteredProducts.map((product) => {
               const cartItem = cart.find((item) => item.product.id === product.id)
-              const qty = cartItem ? cartItem.quantity : 0
+              const quantity = cartItem ? cartItem.quantity : 0
 
               const catInfo = categories.find((category) => category.name === product.category)
               const catIcon = catInfo?.icon || 'fa-box'
@@ -277,12 +271,12 @@ export default function POSPage() {
                 <div
                   key={product.id}
                   className={`group flex flex-col items-center rounded-3xl border bg-white p-4 shadow-sm transition-all ${
-                    qty > 0 ? 'border-blue-400' : 'border-slate-100'
+                    quantity > 0 ? 'border-blue-400' : 'border-slate-100'
                   } ${product.stock <= 0 ? 'opacity-50' : 'hover:border-blue-400'}`}
                 >
                   <div
                     className={`relative mb-4 flex aspect-square w-full items-center justify-center overflow-hidden rounded-2xl border border-slate-100/50 text-4xl shadow-inner transition-transform group-hover:scale-105 ${
-                      qty > 0 ? 'bg-blue-50 text-blue-400' : 'bg-slate-50 text-slate-400'
+                      quantity > 0 ? 'bg-blue-50 text-blue-400' : 'bg-slate-50 text-slate-400'
                     }`}
                   >
                     {product.imageUrl ? (
@@ -297,12 +291,12 @@ export default function POSPage() {
                       <i className={`fas ${catIcon} mr-1`}></i> {typeLabel}
                     </p>
                   )}
-                  <p className={`text-lg font-black ${qty > 0 ? 'text-blue-600' : 'text-slate-400'}`}>
+                  <p className={`text-lg font-black ${quantity > 0 ? 'text-blue-600' : 'text-slate-400'}`}>
                     ฿ {product.price.toFixed(2)}
                   </p>
 
                   {product.stock > 0 ? (
-                    qty > 0 ? (
+                    quantity > 0 ? (
                       <div className="mt-4 flex w-full items-center justify-between rounded-xl bg-slate-50 p-1">
                         <button
                           onClick={() => updateQuantity(product.id, -1)}
@@ -310,7 +304,7 @@ export default function POSPage() {
                         >
                           -
                         </button>
-                        <span className="px-2 font-bold">{qty}</span>
+                        <span className="px-2 font-bold">{quantity}</span>
                         <button
                           onClick={() => updateQuantity(product.id, 1)}
                           className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white shadow-sm"
@@ -362,7 +356,9 @@ export default function POSPage() {
                       >
                         -
                       </button>
-                      <span className="min-w-6 text-center text-sm font-bold text-slate-700">{item.quantity}</span>
+                      <span className="min-w-6 text-center text-sm font-bold text-slate-700">
+                        {item.quantity}
+                      </span>
                       <button
                         type="button"
                         onClick={() => updateQuantity(item.product.id, 1)}
@@ -372,7 +368,9 @@ export default function POSPage() {
                         +
                       </button>
                     </div>
-                    <p className="mt-1 text-xs tracking-wider text-slate-400">฿ {item.price.toFixed(2)} ต่อชิ้น</p>
+                    <p className="mt-1 text-xs tracking-wider text-slate-400">
+                      ฿ {item.price.toFixed(2)} ต่อชิ้น
+                    </p>
                   </div>
                   <p className="font-black">฿ {(item.price * item.quantity).toFixed(2)}</p>
                 </div>
@@ -380,6 +378,30 @@ export default function POSPage() {
               {cart.length === 0 && <p className="py-4 text-center text-sm text-slate-400">ยังไม่มีสินค้าในบิล</p>}
             </div>
             <div className="rounded-b-3xl bg-slate-50 p-6">
+              {applicablePromotions.length > 0 ? (
+                <div className="mb-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="text-sm font-black text-emerald-700">โปรโมชั่นที่ระบบเลือกอัตโนมัติ</p>
+                    <span className="text-sm font-bold text-emerald-700">
+                      ใช้ {appliedPromotions.length} โปร
+                    </span>
+                  </div>
+                  <p className="text-sm font-semibold text-emerald-700">
+                    ลดทันที ฿ {promotionDiscount.toFixed(2)}
+                  </p>
+                  <p className="mt-1 text-xs text-emerald-600">
+                    {promotionLabel}
+                  </p>
+                </div>
+              ) : (
+                <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-sm font-black text-slate-700">โปรโมชั่นอัตโนมัติ</p>
+                  <p className="mt-1 text-sm text-slate-400">
+                    ยังไม่มีโปรที่เข้าเงื่อนไขจากสินค้าในบิลนี้
+                  </p>
+                </div>
+              )}
+
               <div className="mb-2 flex justify-between text-sm text-slate-500">
                 <span>ยอดก่อนส่วนลด</span>
                 <span>฿ {subtotal.toFixed(2)}</span>
@@ -450,43 +472,68 @@ export default function POSPage() {
                 <p className="text-4xl font-black text-blue-600">฿ {total.toFixed(2)}</p>
               </div>
 
-              <div className="mb-6 space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-sm font-black text-slate-800">ตัวเลือกโปรโมชัน</p>
-                {(Object.keys(promotionDetails) as PromotionKey[]).map((promotionKey) => {
-                  const isAvailable =
-                    (promotionKey === 'twoCans' && canQuantity >= 2) ||
-                    (promotionKey === 'sixCans' && canQuantity >= 6)
-                  const isActive = activePromotion === promotionKey
+              <div className="mb-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-sm font-black text-slate-800">โปรโมชั่นอัตโนมัติ</p>
+                  <span className="text-xs font-bold text-slate-400">
+                    แสดงเฉพาะโปรที่เข้าเงื่อนไขแล้ว
+                  </span>
+                </div>
 
-                  return (
-                    <label
-                      key={promotionKey}
-                      className={`flex items-start gap-3 rounded-xl border px-3 py-3 transition ${
-                        isAvailable ? 'cursor-pointer border-slate-200 bg-white' : 'cursor-not-allowed border-slate-100 bg-slate-100 opacity-70'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isActive}
-                        onChange={() => setActivePromotion(isActive ? null : promotionKey)}
-                        disabled={!isAvailable}
-                        className="mt-1 h-4 w-4 border-slate-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="flex-1">
-                        <span className="block text-sm font-bold text-slate-800">{promotionDetails[promotionKey].label}</span>
-                        <span className="block text-xs text-slate-500">{promotionDetails[promotionKey].description}</span>
-                      </span>
-                    </label>
-                  )
-                })}
-                <button
-                  type="button"
-                  onClick={() => setActivePromotion(null)}
-                  className="text-xs font-bold text-slate-400 transition hover:text-red-500"
-                >
-                  ไม่ใช้โปรโมชัน
-                </button>
-                <p className="text-xs text-slate-400">จำนวนกระป๋องในบิลตอนนี้: {canQuantity} ชิ้น</p>
+                {applicablePromotions.length > 0 ? (
+                  <div className="space-y-3">
+                    {applicablePromotions.map((promotion, index) => {
+                      const appliedPromotion = appliedPromotions.find(
+                        (item) => item.promotionId === promotion.promotionId
+                      )
+                      const isApplied = Boolean(appliedPromotion)
+                      return (
+                        <div
+                          key={promotion.promotionId}
+                          className={`rounded-xl border px-4 py-3 ${
+                            isApplied
+                              ? 'border-emerald-200 bg-emerald-50'
+                              : 'border-slate-200 bg-white'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-bold text-slate-800">
+                                {promotion.promotionLabel}
+                              </p>
+                              <p className="mt-1 text-xs text-slate-500">
+                                ซื้อ {promotion.requiredQuantity} ชิ้น ราคา ฿ {promotion.bundlePrice.toFixed(2)}{' '}
+                                ต่อชุด, เข้าเงื่อนไข {promotion.matchedQuantity} ชิ้น
+                              </p>
+                              {!promotion.appliesToAllProducts && promotion.productNames.length > 0 && (
+                                <p className="mt-1 text-xs text-slate-400">
+                                  สินค้าที่ร่วมรายการ: {promotion.productNames.join(', ')}
+                                </p>
+                              )}
+                              {isApplied && (
+                                <p className="mt-1 text-xs font-semibold text-emerald-600">
+                                  ถูกใช้งาน {appliedPromotion?.bundleCount ?? 0} ชุด
+                                </p>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-black text-emerald-600">
+                                -฿ {(isApplied ? appliedPromotion?.promotionDiscount : promotion.promotionDiscount)?.toFixed(2)}
+                              </p>
+                              {!isApplied && index === 1 && (
+                                <p className="mt-1 text-[11px] font-semibold text-slate-400">
+                                  ระบบจะไม่ใช้จำนวนสินค้าซ้ำกันข้ามโปร
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400">ยังไม่มีโปรที่เข้าเงื่อนไขจากบิลนี้</p>
+                )}
               </div>
 
               <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4">
@@ -541,7 +588,9 @@ export default function POSPage() {
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-bold text-slate-700">อัปโหลดสลิปโอนเงิน (ถ้ามี)</label>
+                <label className="mb-2 block text-sm font-bold text-slate-700">
+                  อัปโหลดสลิปโอนเงิน (ถ้ามี)
+                </label>
                 <div className="flex gap-3">
                   <button
                     type="button"
