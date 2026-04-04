@@ -81,6 +81,8 @@ export default function HistoryPage() {
     }
   }
 
+  const formatCurrency = (amount: number) => `฿ ${amount.toFixed(2)}`
+
   return (
     <>
       {/* Header + Date filter */}
@@ -198,13 +200,50 @@ export default function HistoryPage() {
                                       <div className="font-bold text-slate-600">฿ {(item.price * item.quantity).toFixed(2)}</div>
                                     </div>
                                   ))}
-                                  <div className="pt-3 mt-3 border-t border-dashed border-slate-200 flex justify-between items-center font-black text-lg text-slate-800">
-                                    <span>ยอดรวม</span>
-                                    <span>฿ {order.total.toFixed(2)}</span>
+                                  <div className="pt-3 mt-3 border-t border-dashed border-slate-200 space-y-2 text-sm">
+                                    <div className="flex justify-between items-center text-slate-500">
+                                      <span>ยอดก่อนส่วนลด</span>
+                                      <span>{formatCurrency(order.subtotal ?? order.total)}</span>
+                                    </div>
+                                    {!!order.promotionDiscount && (
+                                      <div className="flex justify-between items-center text-emerald-600">
+                                        <span>โปรโมชัน{order.promotionLabel ? `: ${order.promotionLabel}` : ''}</span>
+                                        <span>-{formatCurrency(order.promotionDiscount)}</span>
+                                      </div>
+                                    )}
+                                    {!!order.manualDiscount && (
+                                      <div className="flex justify-between items-center text-orange-500">
+                                        <span>ส่วนลดกำหนดเอง</span>
+                                        <span>-{formatCurrency(order.manualDiscount)}</span>
+                                      </div>
+                                    )}
+                                    {!!order.tax && (
+                                      <div className="flex justify-between items-center text-slate-500">
+                                        <span>ภาษีมูลค่าเพิ่ม</span>
+                                        <span>{formatCurrency(order.tax)}</span>
+                                      </div>
+                                    )}
+                                    <div className="flex justify-between items-center font-black text-lg text-slate-800 pt-2">
+                                      <span>ยอดรวม</span>
+                                      <span>{formatCurrency(order.total)}</span>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
                               <div className="lg:w-64 flex flex-col gap-4">
+                                <div className="bg-white rounded-2xl border border-slate-100 p-4">
+                                  <h4 className="font-bold text-sm text-slate-500 mb-3 uppercase tracking-wide">โปรโมชันและหมายเหตุ</h4>
+                                  <div className="space-y-3 text-sm">
+                                    <div>
+                                      <p className="text-xs font-bold text-slate-400 mb-1">โปรโมชัน</p>
+                                      <p className="font-semibold text-slate-700">{order.promotionLabel || 'ไม่มี'}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs font-bold text-slate-400 mb-1">หมายเหตุ</p>
+                                      <p className="whitespace-pre-wrap text-slate-600">{order.note || 'ไม่มี'}</p>
+                                    </div>
+                                  </div>
+                                </div>
                                 <div>
                                   <h4 className="font-bold text-sm text-slate-500 mb-4 uppercase tracking-wide">หลักฐานชำระเงิน</h4>
                                   {order.slipUrl ? (

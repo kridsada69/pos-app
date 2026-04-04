@@ -37,14 +37,20 @@ model Product {
 }
 
 model Order {
-  id        Int         @id @default(autoincrement())
-  total     Float
-  cashierId Int
-  cashier   User        @relation(fields: [cashierId], references: [id])
-  items     OrderItem[]
-  slipUrl   String?
-  status    String      @default("active")
-  createdAt DateTime    @default(now())
+  id                Int         @id @default(autoincrement())
+  subtotal          Float       @default(0)
+  promotionLabel    String?
+  promotionDiscount Float       @default(0)
+  manualDiscount    Float       @default(0)
+  note              String?
+  tax               Float       @default(0)
+  total             Float
+  cashierId         Int
+  cashier           User        @relation(fields: [cashierId], references: [id])
+  items             OrderItem[]
+  slipUrl           String?
+  status            String      @default("active")
+  createdAt         DateTime    @default(now())
 }
 
 model OrderItem {

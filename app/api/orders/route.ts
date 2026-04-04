@@ -45,16 +45,39 @@ export async function POST(req: Request) {
     const session = await getSession()
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     
-    const { items, total, slipUrl } = await req.json()
+    const {
+      items,
+      subtotal,
+      total,
+      tax,
+      slipUrl,
+      promotionLabel,
+      promotionDiscount,
+      manualDiscount,
+      note,
+    } = await req.json()
     
     if (!items || !items.length || total === undefined) {
       return NextResponse.json({ error: 'Invalid order data' }, { status: 400 })
     }
 
+    const normalizedSubtotal = Number(subtotal) || 0
+    const normalizedPromotionDiscount = Number(promotionDiscount) || 0
+    const normalizedManualDiscount = Number(manualDiscount) || 0
+    const normalizedTax = Number(tax) || 0
+    const normalizedTotal = Number(total) || 0
+    const normalizedNote = typeof note === 'string' ? note.trim() : ''
+
     const result = await prisma.$transaction(async (prisma) => {
       const order = await prisma.order.create({
         data: {
-          total,
+          subtotal: normalizedSubtotal,
+          promotionLabel: typeof promotionLabel === 'string' && promotionLabel.trim() ? promotionLabel.trim() : null,
+          promotionDiscount: normalizedPromotionDiscount,
+          manualDiscount: normalizedManualDiscount,
+          note: normalizedNote || null,
+          tax: normalizedTax,
+          total: normalizedTotal,
           cashierId: session.userId,
           slipUrl: slipUrl || null,
           items: {
