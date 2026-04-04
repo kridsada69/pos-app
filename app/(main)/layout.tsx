@@ -23,6 +23,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     { name: 'ประวัติการขาย', path: '/history', icon: 'fa-history', match: ['/history'] },
     { name: 'สต็อกสินค้า', path: '/stock', icon: 'fa-boxes', match: ['/stock'] },
     { name: 'ข้อมูลพื้นฐาน', path: '/master-data', icon: 'fa-database', match: ['/master-data'] },
+    { name: 'ผู้ใช้งาน', path: '/users', icon: 'fa-users', match: ['/users'] },
   ]
 
   return (
