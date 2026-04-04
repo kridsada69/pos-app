@@ -2,14 +2,32 @@
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
 
+type Product = {
+  id: number
+  name: string
+  category: string
+  price: number
+  stock: number
+  imageUrl?: string | null
+  imageIcon?: string | null
+}
+
+type CartItem = {
+  product: Product
+  quantity: number
+  price: number
+}
+
 export default function POSPage() {
-  const [products, setProducts] = useState<any[]>([])
+  const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<{id: number, name: string, icon?: string}[]>([])
-  const [cart, setCart] = useState<any[]>([])
+  const [cart, setCart] = useState<CartItem[]>([])
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false)
   const [slipFile, setSlipFile] = useState<File | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isTaxEnabled, setIsTaxEnabled] = useState(false)
+  const [isPromoTwoCansEnabled, setIsPromoTwoCansEnabled] = useState(false)
+  const [isPromoSixCansEnabled, setIsPromoSixCansEnabled] = useState(false)
   
   const fetchActiveProducts = () => {
     fetch('/api/products?status=active&limit=1000')
@@ -22,7 +40,7 @@ export default function POSPage() {
     fetch('/api/categories').then(res => res.json()).then(setCategories)
   }, [])
 
-  const addToCart = (product: any) => {
+  const addToCart = (product: Product) => {
     setCart(prev => {
       const existing = prev.find(item => item.product.id === product.id)
       if (existing) {
@@ -36,7 +54,7 @@ export default function POSPage() {
     setCart(prev => prev.map(item => {
       if (item.product.id === id) {
         const newQ = item.quantity + delta
-        return newQ > 0 ? { ...item, quantity: newQ } : item
+        return { ...item, quantity: newQ }
       }
       return item
     }).filter(i => i.quantity > 0))
@@ -48,9 +66,46 @@ export default function POSPage() {
     }
   }
 
+  const isCanProduct = (product: Product) => {
+    const category = categories.find(item => item.name === product.category)
+    const normalizedCategoryName = product.category.trim().toLowerCase()
+    const normalizedProductName = product.name.trim().toLowerCase()
+
+    return (
+      category?.icon === 'fa-prescription-bottle' ||
+      product.imageIcon === 'fa-prescription-bottle' ||
+      normalizedCategoryName.includes('กระป๋อง') ||
+      normalizedCategoryName.includes('can') ||
+      normalizedProductName.includes('กระป๋อง') ||
+      normalizedProductName.includes('can')
+    )
+  }
+
+  const canQuantity = cart.reduce((sum, item) => {
+    return sum + (isCanProduct(item.product) ? item.quantity : 0)
+  }, 0)
+
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
-  const tax = isTaxEnabled ? subtotal * 0.07 : 0;
-  const total = subtotal + tax
+  const promoTwoCansDiscount = isPromoTwoCansEnabled && canQuantity >= 2
+    ? cart.reduce((sum, item) => {
+        if (!isCanProduct(item.product)) return sum
+        return sum + Math.max(item.price - 100, 0) * item.quantity
+      }, 0)
+    : 0
+  const promoSixCansDiscount = isPromoSixCansEnabled && canQuantity >= 6 ? 150 : 0
+  const totalDiscount = promoTwoCansDiscount + promoSixCansDiscount
+  const discountedSubtotal = Math.max(subtotal - totalDiscount, 0)
+  const tax = isTaxEnabled ? discountedSubtotal * 0.07 : 0
+  const total = discountedSubtotal + tax
+
+  useEffect(() => {
+    if (canQuantity < 2 && isPromoTwoCansEnabled) {
+      setIsPromoTwoCansEnabled(false)
+    }
+    if (canQuantity < 6 && isPromoSixCansEnabled) {
+      setIsPromoSixCansEnabled(false)
+    }
+  }, [canQuantity, isPromoTwoCansEnabled, isPromoSixCansEnabled])
 
   const confirmCheckout = async () => {
     if (cart.length === 0) return alert('No items in cart')
@@ -86,6 +141,8 @@ export default function POSPage() {
         alert('ชำระเงินเรียบร้อย! ตัดสต็อกอัตโนมัติ')
         setCart([])
         setSlipFile(null)
+        setIsPromoTwoCansEnabled(false)
+        setIsPromoSixCansEnabled(false)
         setIsConfirmModalOpen(false)
         fetchActiveProducts()
       } else {
@@ -161,7 +218,26 @@ export default function POSPage() {
                 <div key={idx} className="flex justify-between items-start">
                   <div>
                     <p className="font-bold text-slate-800">{item.product.name}</p>
-                    <p className="text-xs text-slate-400 tracking-wider">฿ {item.price.toFixed(2)} x {item.quantity}</p>
+                    <div className="mt-2 inline-flex items-center gap-2 rounded-xl bg-slate-100 p-1">
+                      <button
+                        type="button"
+                        onClick={() => updateQuantity(item.product.id, -1)}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-slate-500 shadow-sm transition hover:text-red-500"
+                        aria-label={`ลดจำนวน ${item.product.name}`}
+                      >
+                        -
+                      </button>
+                      <span className="min-w-6 text-center text-sm font-bold text-slate-700">{item.quantity}</span>
+                      <button
+                        type="button"
+                        onClick={() => updateQuantity(item.product.id, 1)}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-slate-500 shadow-sm transition hover:text-blue-600"
+                        aria-label={`เพิ่มจำนวน ${item.product.name}`}
+                      >
+                        +
+                      </button>
+                    </div>
+                    <p className="mt-1 text-xs text-slate-400 tracking-wider">฿ {item.price.toFixed(2)} ต่อชิ้น</p>
                   </div>
                   <p className="font-black">฿ {(item.price * item.quantity).toFixed(2)}</p>
                 </div>
@@ -171,8 +247,14 @@ export default function POSPage() {
             <div className="p-6 bg-slate-50 rounded-b-3xl">
               <div className="flex justify-between text-sm mb-2 text-slate-500">
                 <span>ยอดก่อนภาษี</span>
-                <span>฿ {subtotal.toFixed(2)}</span>
+                <span>฿ {discountedSubtotal.toFixed(2)}</span>
               </div>
+              {totalDiscount > 0 && (
+                <div className="flex justify-between text-sm mb-2 text-emerald-600">
+                  <span>ส่วนลดโปรโมชัน</span>
+                  <span>-฿ {totalDiscount.toFixed(2)}</span>
+                </div>
+              )}
               <div className="flex justify-between items-center text-sm mb-4 text-slate-500">
                 <label className="flex items-center cursor-pointer select-none group">
                   <input type="checkbox" checked={isTaxEnabled} onChange={e => setIsTaxEnabled(e.target.checked)} className="mr-2 w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 transition" />
@@ -210,6 +292,37 @@ export default function POSPage() {
               <div className="text-center mb-6">
                 <p className="text-slate-500 text-sm mb-1">ยอดรวมที่ต้องชำระ</p>
                 <p className="text-4xl font-black text-blue-600">฿ {total.toFixed(2)}</p>
+              </div>
+
+              <div className="mb-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+                <p className="text-sm font-black text-slate-800">ตัวเลือกโปรโมชัน</p>
+                <label className={`flex items-start gap-3 rounded-xl border px-3 py-3 transition ${canQuantity >= 2 ? 'border-slate-200 bg-white cursor-pointer' : 'border-slate-100 bg-slate-100 cursor-not-allowed opacity-70'}`}>
+                  <input
+                    type="checkbox"
+                    checked={isPromoTwoCansEnabled}
+                    onChange={e => setIsPromoTwoCansEnabled(e.target.checked)}
+                    disabled={canQuantity < 2}
+                    className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="flex-1">
+                    <span className="block text-sm font-bold text-slate-800">โปรแมวสลิด 2 กระป๋อง 200 บาท</span>
+                    <span className="block text-xs text-slate-500">เมื่อซื้อกระป๋องตั้งแต่ 2 ชิ้นขึ้นไป จะคิดราคากระป๋องละ 100 บาท</span>
+                  </span>
+                </label>
+                <label className={`flex items-start gap-3 rounded-xl border px-3 py-3 transition ${canQuantity >= 6 ? 'border-slate-200 bg-white cursor-pointer' : 'border-slate-100 bg-slate-100 cursor-not-allowed opacity-70'}`}>
+                  <input
+                    type="checkbox"
+                    checked={isPromoSixCansEnabled}
+                    onChange={e => setIsPromoSixCansEnabled(e.target.checked)}
+                    disabled={canQuantity < 6}
+                    className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="flex-1">
+                    <span className="block text-sm font-bold text-slate-800">โปร 5 แถม 1 ลด 150 บาท</span>
+                    <span className="block text-xs text-slate-500">เมื่อซื้อกระป๋องครบ 6 ชิ้น จะลดเพิ่ม 150 บาท</span>
+                  </span>
+                </label>
+                <p className="text-xs text-slate-400">จำนวนกระป๋องในบิลตอนนี้: {canQuantity} ชิ้น</p>
               </div>
 
               <div>
