@@ -36,6 +36,7 @@ export default function POSPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<{ id: number; name: string; icon?: string }[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
+  const [activeTypeTab, setActiveTypeTab] = useState('all')
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false)
   const [slipFile, setSlipFile] = useState<File | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -111,6 +112,26 @@ export default function POSPage() {
       normalizedProductName.includes('can')
     )
   }
+
+  const getProductTypeLabel = (product: Product) => {
+    const catInfo = categories.find((category) => category.name === product.category)
+    const catIcon = catInfo?.icon || product.imageIcon || 'fa-box'
+
+    if (catIcon === 'fa-wine-bottle') return 'ขวด'
+    if (catIcon === 'fa-prescription-bottle') return 'กระป๋อง'
+    if (catIcon === 'fa-beer') return 'แก้ว'
+    return product.category || 'อื่นๆ'
+  }
+
+  const productTypeTabs = useMemo(() => {
+    const labels = Array.from(new Set(products.map((product) => getProductTypeLabel(product))))
+    return ['all', ...labels]
+  }, [products, categories])
+
+  const filteredProducts = useMemo(() => {
+    if (activeTypeTab === 'all') return products
+    return products.filter((product) => getProductTypeLabel(product) === activeTypeTab)
+  }, [activeTypeTab, products, categories])
 
   const canQuantity = cart.reduce((sum, item) => {
     return sum + (isCanProduct(item.product) ? item.quantity : 0)
@@ -218,17 +239,39 @@ export default function POSPage() {
 
       <div className="flex flex-col gap-8 lg:flex-row">
         <div className="flex-1">
+          <div className="mb-5 flex gap-3 overflow-x-auto pb-2">
+            {productTypeTabs.map((tab) => {
+              const isActive = activeTypeTab === tab
+              const label = tab === 'all' ? 'ทั้งหมด' : tab
+              const count = tab === 'all'
+                ? products.length
+                : products.filter((product) => getProductTypeLabel(product) === tab).length
+
+              return (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setActiveTypeTab(tab)}
+                  className={`shrink-0 rounded-2xl border px-4 py-3 text-sm font-bold transition ${
+                    isActive
+                      ? 'border-blue-600 bg-blue-600 text-white shadow-lg shadow-blue-200'
+                      : 'border-slate-200 bg-white text-slate-500 hover:border-blue-200 hover:text-blue-600'
+                  }`}
+                >
+                  {label} <span className={`ml-1 ${isActive ? 'text-blue-100' : 'text-slate-300'}`}>({count})</span>
+                </button>
+              )
+            })}
+          </div>
+
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
-            {products.map((product) => {
+            {filteredProducts.map((product) => {
               const cartItem = cart.find((item) => item.product.id === product.id)
               const qty = cartItem ? cartItem.quantity : 0
 
               const catInfo = categories.find((category) => category.name === product.category)
               const catIcon = catInfo?.icon || 'fa-box'
-              let typeLabel = '-'
-              if (catIcon === 'fa-wine-bottle') typeLabel = 'ขวด'
-              else if (catIcon === 'fa-prescription-bottle') typeLabel = 'กระป๋อง'
-              else if (catIcon === 'fa-beer') typeLabel = 'แก้ว'
+              const typeLabel = getProductTypeLabel(product)
 
               return (
                 <div
@@ -249,7 +292,7 @@ export default function POSPage() {
                     )}
                   </div>
                   <h4 className="text-center font-bold text-slate-800">{product.name}</h4>
-                  {typeLabel !== '-' && (
+                  {typeLabel && (
                     <p className="mb-1 text-xs font-bold text-slate-400">
                       <i className={`fas ${catIcon} mr-1`}></i> {typeLabel}
                     </p>
@@ -290,6 +333,12 @@ export default function POSPage() {
               )
             })}
           </div>
+          {filteredProducts.length === 0 && (
+            <div className="mt-6 rounded-3xl border border-dashed border-slate-200 bg-white px-6 py-12 text-center text-slate-400">
+              <i className="fas fa-layer-group mb-3 block text-3xl text-slate-300"></i>
+              ไม่พบสินค้าในแท็บนี้
+            </div>
+          )}
         </div>
 
         <div className="lg:w-96">
