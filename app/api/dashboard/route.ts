@@ -35,10 +35,24 @@ export async function GET(request: Request) {
     const totalSales = orders.reduce((sum, o) => sum + o.total, 0)
     const orderCount = orders.length
 
-    // Low stock (not date-filtered)
-    const lowStockCount = await prisma.product.count({
-      where: { stock: { lte: 10 }, status: 'active' }
+    const inventoryAlertProducts = await prisma.product.findMany({
+      where: {
+        stock: { lte: 10 },
+        status: 'active',
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        name: true,
+        stock: true,
+        category: true,
+      },
+      orderBy: [{ stock: 'asc' }, { name: 'asc' }],
     })
+
+    const lowStockProducts = inventoryAlertProducts.filter((product) => product.stock > 0)
+    const outOfStockProducts = inventoryAlertProducts.filter((product) => product.stock <= 0)
+    const lowStockCount = lowStockProducts.length
 
     // Daily sales breakdown
     const dailyMap: Record<string, { date: string; count: number; total: number }> = {}
@@ -84,6 +98,9 @@ export async function GET(request: Request) {
       todaySales: totalSales, // backward compat
       orderCount,
       lowStockCount,
+      outOfStockCount: outOfStockProducts.length,
+      lowStockProducts,
+      outOfStockProducts,
       dailySales,
       topProducts,
       cashierStats,

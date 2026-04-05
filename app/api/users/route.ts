@@ -10,7 +10,10 @@ export async function GET() {
         username: true,
         email: true,
         mobile: true,
+        isActive: true,
+        deletedAt: true,
         createdAt: true,
+        updatedAt: true,
         _count: {
           select: {
             orders: true,
@@ -20,7 +23,12 @@ export async function GET() {
       orderBy: { createdAt: 'desc' },
     })
 
-    return NextResponse.json(users)
+    return NextResponse.json(
+      users.map((user) => ({
+        ...user,
+        status: user.isActive && !user.deletedAt ? 'active' : 'inactive',
+      }))
+    )
   } catch (error) {
     console.error('Failed to fetch users', error)
     return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 })

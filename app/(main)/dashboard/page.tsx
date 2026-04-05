@@ -6,6 +6,9 @@ interface DashboardData {
   todaySales: number
   orderCount: number
   lowStockCount: number
+  outOfStockCount: number
+  lowStockProducts: { id: number; name: string; stock: number; category: string }[]
+  outOfStockProducts: { id: number; name: string; stock: number; category: string }[]
   dailySales: { date: string; count: number; total: number }[]
   topProducts: { id: number; name: string; quantity: number; revenue: number }[]
   cashierStats: { id: number; name: string; count: number; total: number }[]
@@ -21,6 +24,56 @@ const cashierColors = [
 ]
 
 const todayStr = () => new Date().toISOString().split('T')[0]
+
+function StockAlertList({
+  title,
+  iconClass,
+  iconWrapClass,
+  items,
+  emptyMessage,
+  stockTone,
+}: {
+  title: string
+  iconClass: string
+  iconWrapClass: string
+  items: { id: number; name: string; stock: number; category: string }[]
+  emptyMessage: string
+  stockTone: string
+}) {
+  return (
+    <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+      <div className="p-6 border-b border-slate-50 flex items-center gap-3">
+        <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${iconWrapClass}`}>
+          <i className={iconClass}></i>
+        </div>
+        <h3 className="font-bold text-slate-800">{title}</h3>
+      </div>
+      {items.length === 0 ? (
+        <div className="py-12 text-center text-slate-400 text-sm">
+          <i className="fas fa-box-open text-3xl block mb-2 text-slate-200"></i>
+          {emptyMessage}
+        </div>
+      ) : (
+        <div className="divide-y divide-slate-50">
+          {items.map((item) => (
+            <div
+              key={item.id}
+              className="flex items-center justify-between gap-4 px-6 py-4 hover:bg-slate-50/50 transition"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-800">{item.name}</p>
+                <p className="mt-1 text-xs text-slate-400">{item.category}</p>
+              </div>
+              <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${stockTone}`}>
+                เหลือ {item.stock} ชิ้น
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
@@ -122,8 +175,8 @@ export default function Dashboard() {
       {/* Loading skeleton */}
       {!data ? (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            {[1,2,3].map(i => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {[1,2].map(i => (
               <div key={i} className="bg-white rounded-3xl border border-slate-100 p-6 animate-pulse">
                 <div className="h-3 w-24 bg-slate-100 rounded mb-4"></div>
                 <div className="h-8 w-32 bg-slate-100 rounded"></div>
@@ -135,7 +188,7 @@ export default function Dashboard() {
       ) : (
         <>
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
             <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-6 rounded-3xl shadow-sm relative overflow-hidden group">
               <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full transition-transform group-hover:scale-150"></div>
               <p className="text-blue-100 text-sm font-semibold relative">ยอดขายรวม</p>
@@ -150,14 +203,25 @@ export default function Dashboard() {
                 เฉลี่ย ฿ {data.orderCount > 0 ? (data.totalSales / data.orderCount).toFixed(2) : '0.00'} / บิล
               </p>
             </div>
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 sm:col-span-1 relative overflow-hidden group">
-              <div className="absolute -right-4 -top-4 w-24 h-24 bg-red-50 rounded-full transition-transform group-hover:scale-150"></div>
-              <p className="text-slate-500 text-sm font-semibold relative">สินค้าใกล้หมด</p>
-              <p className={`text-3xl font-black mt-2 relative ${data.lowStockCount > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
-                {data.lowStockCount} <span className="text-lg font-bold text-slate-400">รายการ</span>
-              </p>
-              <p className="text-slate-400 text-xs mt-1 relative">สต็อกน้อยกว่า 10 ชิ้น</p>
-            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <StockAlertList
+              title="สินค้าใกล้หมด"
+              iconClass="fas fa-exclamation-triangle text-amber-500"
+              iconWrapClass="bg-amber-50"
+              items={data.lowStockProducts}
+              emptyMessage="ยังไม่มีสินค้าที่ใกล้หมด"
+              stockTone="bg-amber-50 text-amber-700"
+            />
+            <StockAlertList
+              title="สินค้าหมดแล้ว"
+              iconClass="fas fa-box text-slate-500"
+              iconWrapClass="bg-slate-100"
+              items={data.outOfStockProducts}
+              emptyMessage="ยังไม่มีสินค้าที่หมดสต็อก"
+              stockTone="bg-slate-100 text-slate-700"
+            />
           </div>
 
           {/* Daily Sales — only show if multi-day range */}

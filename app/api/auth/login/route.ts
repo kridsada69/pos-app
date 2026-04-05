@@ -10,6 +10,9 @@ export async function POST(req: Request) {
 
     const user = await prisma.user.findUnique({ where: { username } })
     if (!user) return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
+    if (!user.isActive || user.deletedAt) {
+      return NextResponse.json({ error: 'This user account is inactive' }, { status: 403 })
+    }
 
     const valid = await bcrypt.compare(password, user.password)
     if (!valid) return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
