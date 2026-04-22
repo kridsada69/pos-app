@@ -29,6 +29,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     { name: 'สต็อกสินค้า', path: '/stock', icon: 'fa-boxes', match: ['/stock'], visible: true },
     { name: 'ข้อมูลพื้นฐาน', path: '/master-data', icon: 'fa-database', match: ['/master-data'], visible: canAccessPath(user?.role, '/master-data') },
     { name: 'ผู้ใช้งาน', path: '/users', icon: 'fa-users', match: ['/users'], visible: canAccessPath(user?.role, '/users') },
+    { name: 'Log History', path: '/log-history', icon: 'fa-clipboard-list', match: ['/log-history'], visible: canAccessPath(user?.role, '/log-history') },
   ].filter((item) => item.visible)
 
   if (user && !canAccessPath(user.role, pathname)) return null

@@ -16,6 +16,7 @@ export function canAccessPath(roleValue: unknown, pathname: string) {
   if (role === 'super_admin') return true
 
   if (pathname.startsWith('/users')) return false
+  if (pathname.startsWith('/log-history')) return false
   if (pathname.startsWith('/master-data')) return role === 'admin'
   if (pathname.startsWith('/expense-summary')) return role === 'admin'
 
@@ -29,7 +30,7 @@ export function canAccessPath(roleValue: unknown, pathname: string) {
   ].some((path) => pathname.startsWith(path))
 }
 
-export function canWriteFeature(roleValue: unknown, feature: 'promotions' | 'gifts' | 'masterData' | 'expenses' | 'users') {
+export function canWriteFeature(roleValue: unknown, feature: 'promotions' | 'gifts' | 'masterData' | 'expenses' | 'users' | 'activityLogs') {
   const role = normalizeRole(roleValue)
 
   if (role === 'super_admin') return true

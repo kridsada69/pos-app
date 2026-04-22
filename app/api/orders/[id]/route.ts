@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { recordActivity } from '@/lib/activity-log'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/session'
 
@@ -10,9 +11,20 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const { id } = await params
     if (!id) return NextResponse.json({ error: 'Order ID is required' }, { status: 400 })
 
-    await prisma.order.update({
+    const order = await prisma.order.update({
       where: { id: Number(id) },
       data: { status: 'inactive' }
+    })
+    await recordActivity(request, {
+      action: 'delete',
+      entity: 'order',
+      entityId: order.id,
+      summary: `ลบบิล #${order.id}`,
+      metadata: {
+        orderId: order.id,
+        total: order.total,
+        status: order.status,
+      },
     })
 
     return NextResponse.json({ success: true })
@@ -36,6 +48,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const updatedOrder = await prisma.order.update({
       where: { id: Number(id) },
       data: { slipUrl }
+    })
+    await recordActivity(request, {
+      action: 'edit',
+      entity: 'order',
+      entityId: updatedOrder.id,
+      summary: `แก้ไขบิล #${updatedOrder.id}`,
+      metadata: {
+        orderId: updatedOrder.id,
+        slipUrl: updatedOrder.slipUrl,
+        total: updatedOrder.total,
+      },
     })
 
     return NextResponse.json(updatedOrder)

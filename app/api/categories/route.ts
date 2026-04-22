@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { recordActivity } from '@/lib/activity-log'
 import { prisma } from '@/lib/prisma'
 import { requireWriteAccess } from '@/lib/authz'
 
@@ -15,7 +16,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { response } = await requireWriteAccess('masterData')
+    const { user, response } = await requireWriteAccess('masterData')
     if (response) return response
 
     const { name, icon } = await request.json()
@@ -24,6 +25,15 @@ export async function POST(request: Request) {
     const category = await prisma.category.create({
       data: { name, icon: icon || '📦' }
     })
+    await recordActivity(request, {
+      user,
+      action: 'create',
+      entity: 'category',
+      entityId: category.id,
+      summary: `เพิ่มหมวดหมู่ ${category.name}`,
+      metadata: { categoryId: category.id, name: category.name, icon: category.icon },
+    })
+
     return NextResponse.json(category, { status: 201 })
   } catch (error) {
     console.error('Error creating category:', error)

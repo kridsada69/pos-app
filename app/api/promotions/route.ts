@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { recordActivity } from '@/lib/activity-log'
 import { prisma } from '@/lib/prisma'
 import { requireWriteAccess } from '@/lib/authz'
 
@@ -49,7 +50,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { response } = await requireWriteAccess('promotions')
+    const { user, response } = await requireWriteAccess('promotions')
     if (response) return response
 
     const body = await request.json()
@@ -104,6 +105,19 @@ export async function POST(request: Request) {
             },
           },
         },
+      },
+    })
+    await recordActivity(request, {
+      user,
+      action: 'create',
+      entity: 'promotion',
+      entityId: promotion.id,
+      summary: `สร้างโปรโมชั่น ${promotion.name}`,
+      metadata: {
+        promotionId: promotion.id,
+        name: promotion.name,
+        requiredQuantity: promotion.requiredQuantity,
+        bundlePrice: promotion.bundlePrice,
       },
     })
 

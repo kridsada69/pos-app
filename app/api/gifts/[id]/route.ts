@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
+import { recordActivity } from '@/lib/activity-log'
 import { prisma } from '@/lib/prisma'
 import { requireWriteAccess } from '@/lib/authz'
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { response } = await requireWriteAccess('gifts')
+    const { user, response } = await requireWriteAccess('gifts')
     if (response) return response
 
     const { id } = await params
@@ -73,6 +74,19 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         },
       },
     })
+    await recordActivity(request, {
+      user,
+      action: 'edit',
+      entity: 'gift',
+      entityId: gift.id,
+      summary: `แก้ไขของแถม ${gift.name}`,
+      metadata: {
+        giftCampaignId: gift.id,
+        name: gift.name,
+        giftName: gift.giftName,
+        isActive: gift.isActive,
+      },
+    })
 
     return NextResponse.json(gift)
   } catch (error) {
@@ -83,7 +97,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { response } = await requireWriteAccess('gifts')
+    const { user, response } = await requireWriteAccess('gifts')
     if (response) return response
 
     const { id } = await params
@@ -93,8 +107,20 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       return NextResponse.json({ error: 'Gift ID is required' }, { status: 400 })
     }
 
-    await prisma.giftCampaign.delete({
+    const gift = await prisma.giftCampaign.delete({
       where: { id: giftId },
+    })
+    await recordActivity(request, {
+      user,
+      action: 'delete',
+      entity: 'gift',
+      entityId: gift.id,
+      summary: `ลบของแถม ${gift.name}`,
+      metadata: {
+        giftCampaignId: gift.id,
+        name: gift.name,
+        giftName: gift.giftName,
+      },
     })
 
     return NextResponse.json({ success: true })

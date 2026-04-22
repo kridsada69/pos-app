@@ -21,6 +21,28 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
   orders    Order[]
+  activityLogs ActivityLog[]
+}
+
+model ActivityLog {
+  id         Int      @id @default(autoincrement())
+  userId     Int?
+  username   String?
+  userName   String?
+  userRole   String?
+  action     String
+  entity     String
+  entityId   String?
+  summary    String
+  route      String
+  httpMethod String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@index([action, entity])
 }
 
 model Product {

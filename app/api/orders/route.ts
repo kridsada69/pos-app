@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/session'
+import { recordActivity } from '@/lib/activity-log'
 import { getBestPromotionStack } from '@/lib/promotion-utils'
 import { getApplicableGiftCampaigns } from '@/lib/gift-utils'
 
@@ -250,6 +251,19 @@ export async function POST(req: Request) {
       }
       
       return order
+    })
+
+    await recordActivity(req, {
+      action: 'checkout',
+      entity: 'order',
+      entityId: result.id,
+      summary: `คิดเงินบิล #${result.id} ยอดรวม ฿${Number(result.total).toFixed(2)}`,
+      metadata: {
+        orderId: result.id,
+        subtotal: result.subtotal,
+        total: result.total,
+        itemCount: sanitizedItems.length,
+      },
     })
 
     return NextResponse.json({ success: true, order: result })

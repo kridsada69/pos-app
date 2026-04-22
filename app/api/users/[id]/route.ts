@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs'
 import { NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
+import { recordActivity } from '@/lib/activity-log'
 import { prisma } from '@/lib/prisma'
 import { requireWriteAccess } from '@/lib/authz'
 import { normalizeRole } from '@/lib/roles'
@@ -17,7 +18,7 @@ function normalizeValue(value: unknown) {
 
 export async function PATCH(req: Request, ctx: RouteContext<'/api/users/[id]'>) {
   try {
-    const { response } = await requireWriteAccess('users')
+    const { user: actor, response } = await requireWriteAccess('users')
     if (response) return response
 
     const { id: rawId } = await ctx.params
@@ -97,6 +98,19 @@ export async function PATCH(req: Request, ctx: RouteContext<'/api/users/[id]'>) 
         },
       },
     })
+    await recordActivity(req, {
+      user: actor,
+      action: 'edit',
+      entity: 'user',
+      entityId: user.id,
+      summary: `แก้ไขผู้ใช้ ${user.name} เป็น role ${user.role}`,
+      metadata: {
+        userId: user.id,
+        username: user.username,
+        role: user.role,
+        status: user.isActive && !user.deletedAt ? 'active' : 'inactive',
+      },
+    })
 
     return NextResponse.json({
       ...user,
@@ -118,7 +132,7 @@ export async function PATCH(req: Request, ctx: RouteContext<'/api/users/[id]'>) 
 
 export async function DELETE(_req: Request, ctx: RouteContext<'/api/users/[id]'>) {
   try {
-    const { response } = await requireWriteAccess('users')
+    const { user: actor, response } = await requireWriteAccess('users')
     if (response) return response
 
     const { id: rawId } = await ctx.params
@@ -136,6 +150,19 @@ export async function DELETE(_req: Request, ctx: RouteContext<'/api/users/[id]'>
       },
       select: {
         id: true,
+        name: true,
+        username: true,
+      },
+    })
+    await recordActivity(_req, {
+      user: actor,
+      action: 'delete',
+      entity: 'user',
+      entityId: user.id,
+      summary: `ปิดใช้งานผู้ใช้ ${user.name}`,
+      metadata: {
+        userId: user.id,
+        username: user.username,
       },
     })
 

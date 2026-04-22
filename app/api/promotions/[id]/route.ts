@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { recordActivity } from '@/lib/activity-log'
 import { prisma } from '@/lib/prisma'
 import { requireWriteAccess } from '@/lib/authz'
 
@@ -14,7 +15,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { response } = await requireWriteAccess('promotions')
+    const { user, response } = await requireWriteAccess('promotions')
     if (response) return response
 
     const { id } = await params
@@ -82,6 +83,20 @@ export async function PUT(
         },
       },
     })
+    await recordActivity(request, {
+      user,
+      action: 'edit',
+      entity: 'promotion',
+      entityId: promotion.id,
+      summary: `แก้ไขโปรโมชั่น ${promotion.name}`,
+      metadata: {
+        promotionId: promotion.id,
+        name: promotion.name,
+        requiredQuantity: promotion.requiredQuantity,
+        bundlePrice: promotion.bundlePrice,
+        isActive: promotion.isActive,
+      },
+    })
 
     return NextResponse.json(promotion)
   } catch (error) {
@@ -95,7 +110,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { response } = await requireWriteAccess('promotions')
+    const { user, response } = await requireWriteAccess('promotions')
     if (response) return response
 
     const { id } = await params
@@ -105,8 +120,19 @@ export async function DELETE(
       return NextResponse.json({ error: 'Promotion ID is invalid' }, { status: 400 })
     }
 
-    await prisma.promotion.delete({
+    const promotion = await prisma.promotion.delete({
       where: { id: promotionId },
+    })
+    await recordActivity(request, {
+      user,
+      action: 'delete',
+      entity: 'promotion',
+      entityId: promotion.id,
+      summary: `ลบโปรโมชั่น ${promotion.name}`,
+      metadata: {
+        promotionId: promotion.id,
+        name: promotion.name,
+      },
     })
 
     return NextResponse.json({ success: true })

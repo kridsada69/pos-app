@@ -1,17 +1,26 @@
 import { NextResponse } from 'next/server'
+import { recordActivity } from '@/lib/activity-log'
 import { prisma } from '@/lib/prisma'
 import { requireWriteAccess } from '@/lib/authz'
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { response } = await requireWriteAccess('masterData')
+    const { user, response } = await requireWriteAccess('masterData')
     if (response) return response
 
     const { id } = await params
     if (!id) return NextResponse.json({ error: 'ID is required' }, { status: 400 })
 
-    await prisma.company.delete({
+    const company = await prisma.company.delete({
       where: { id: Number(id) }
+    })
+    await recordActivity(request, {
+      user,
+      action: 'delete',
+      entity: 'company',
+      entityId: company.id,
+      summary: `ลบบริษัท ${company.name}`,
+      metadata: { companyId: company.id, name: company.name },
     })
 
     return NextResponse.json({ success: true })

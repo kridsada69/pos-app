@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { getCurrentUser } from '@/lib/authz'
+import { recordActivity } from '@/lib/activity-log'
 import { prisma } from '@/lib/prisma'
 
 export async function GET(request: Request) {
@@ -53,6 +55,9 @@ export async function GET(request: Request) {
 
 export async function POST(req: Request) {
   try {
+    const user = await getCurrentUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
     const body = await req.json()
     const { name, category, stock, cost, price, company, imageUrl, status } = body
     
@@ -68,6 +73,22 @@ export async function POST(req: Request) {
         status: status || 'active'
       }
     })
+    await recordActivity(req, {
+      user,
+      action: 'create',
+      entity: 'stock',
+      entityId: product.id,
+      summary: `เพิ่มสินค้า ${product.name} ใน stock`,
+      metadata: {
+        productId: product.id,
+        name: product.name,
+        stock: product.stock,
+        price: product.price,
+        category: product.category,
+        company: product.company,
+      },
+    })
+
     return NextResponse.json(product)
   } catch (error) {
     return NextResponse.json({ error: 'Failed to create product' }, { status: 500 })

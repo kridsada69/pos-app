@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
+import { recordActivity } from '@/lib/activity-log'
 
 export async function POST(req: Request) {
   try {
@@ -13,6 +14,22 @@ export async function POST(req: Request) {
     const passwordHash = await bcrypt.hash(password, 10)
     const user = await prisma.user.create({
       data: { name, username, email, mobile, password: passwordHash }
+    })
+    await recordActivity(req, {
+      user: {
+        id: user.id,
+        username: user.username,
+        name: user.name,
+        role: 'employee',
+      },
+      action: 'create',
+      entity: 'user',
+      entityId: user.id,
+      summary: `สมัครผู้ใช้ใหม่ ${user.name}`,
+      metadata: {
+        userId: user.id,
+        username: user.username,
+      },
     })
 
     return NextResponse.json({ success: true, user: { id: user.id, username: user.username, name: user.name } })

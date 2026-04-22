@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { recordActivity } from '@/lib/activity-log'
 import { prisma } from '@/lib/prisma'
 import { requireWriteAccess } from '@/lib/authz'
 
@@ -15,7 +16,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { response } = await requireWriteAccess('masterData')
+    const { user, response } = await requireWriteAccess('masterData')
     if (response) return response
 
     const { name } = await request.json()
@@ -24,6 +25,15 @@ export async function POST(request: Request) {
     const company = await prisma.company.create({
       data: { name }
     })
+    await recordActivity(request, {
+      user,
+      action: 'create',
+      entity: 'company',
+      entityId: company.id,
+      summary: `เพิ่มบริษัท ${company.name}`,
+      metadata: { companyId: company.id, name: company.name },
+    })
+
     return NextResponse.json(company, { status: 201 })
   } catch (error) {
     console.error('Error creating company:', error)
