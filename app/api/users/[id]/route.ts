@@ -2,6 +2,8 @@ import bcrypt from 'bcryptjs'
 import { NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { requireWriteAccess } from '@/lib/authz'
+import { normalizeRole } from '@/lib/roles'
 
 function parseUserId(value: string) {
   const id = Number(value)
@@ -15,6 +17,9 @@ function normalizeValue(value: unknown) {
 
 export async function PATCH(req: Request, ctx: RouteContext<'/api/users/[id]'>) {
   try {
+    const { response } = await requireWriteAccess('users')
+    if (response) return response
+
     const { id: rawId } = await ctx.params
     const userId = parseUserId(rawId)
 
@@ -29,6 +34,7 @@ export async function PATCH(req: Request, ctx: RouteContext<'/api/users/[id]'>) 
     const mobile = normalizeValue(body.mobile)
     const password = normalizeValue(body.password)
     const status = body.status === 'inactive' ? 'inactive' : 'active'
+    const role = normalizeRole(body.role)
 
     if (!name || !username || !email || !mobile) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -54,6 +60,7 @@ export async function PATCH(req: Request, ctx: RouteContext<'/api/users/[id]'>) 
       username,
       email,
       mobile,
+      role,
       isActive: status === 'active',
       deletedAt: status === 'active' ? null : new Date(),
     }
@@ -78,6 +85,7 @@ export async function PATCH(req: Request, ctx: RouteContext<'/api/users/[id]'>) 
         username: true,
         email: true,
         mobile: true,
+        role: true,
         isActive: true,
         deletedAt: true,
         createdAt: true,
@@ -110,6 +118,9 @@ export async function PATCH(req: Request, ctx: RouteContext<'/api/users/[id]'>) 
 
 export async function DELETE(_req: Request, ctx: RouteContext<'/api/users/[id]'>) {
   try {
+    const { response } = await requireWriteAccess('users')
+    if (response) return response
+
     const { id: rawId } = await ctx.params
     const userId = parseUserId(rawId)
 

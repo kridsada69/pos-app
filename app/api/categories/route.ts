@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireWriteAccess } from '@/lib/authz'
 
 export async function GET() {
   try {
@@ -14,6 +15,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const { response } = await requireWriteAccess('masterData')
+    if (response) return response
+
     const { name, icon } = await request.json()
     if (!name) return NextResponse.json({ error: 'Name is required' }, { status: 400 })
     

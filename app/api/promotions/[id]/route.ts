@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireWriteAccess } from '@/lib/authz'
 
 const parseProductIds = (value: unknown) =>
   Array.isArray(value)
@@ -13,6 +14,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { response } = await requireWriteAccess('promotions')
+    if (response) return response
+
     const { id } = await params
     const promotionId = Number(id)
 
@@ -91,6 +95,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { response } = await requireWriteAccess('promotions')
+    if (response) return response
+
     const { id } = await params
     const promotionId = Number(id)
 

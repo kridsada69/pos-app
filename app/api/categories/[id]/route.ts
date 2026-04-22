@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireWriteAccess } from '@/lib/authz'
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { response } = await requireWriteAccess('masterData')
+    if (response) return response
+
     const { id } = await params
     const { name, icon } = await request.json()
     if (!id || !name) return NextResponse.json({ error: 'ID and Name are required' }, { status: 400 })
@@ -23,6 +27,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { response } = await requireWriteAccess('masterData')
+    if (response) return response
+
     const { id } = await params
     if (!id) return NextResponse.json({ error: 'ID is required' }, { status: 400 })
 

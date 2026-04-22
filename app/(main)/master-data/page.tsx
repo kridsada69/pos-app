@@ -1,7 +1,11 @@
 "use client"
 import { useState, useEffect } from 'react'
+import { useAuth } from '@/context/AuthContext'
+import { canWriteFeature } from '@/lib/roles'
 
 export default function MasterDataPage() {
+  const { user } = useAuth()
+  const canWrite = canWriteFeature(user?.role, 'masterData')
   const [categories, setCategories] = useState<{id: number, name: string, icon?: string}[]>([])
   const [companies, setCompanies] = useState<{id: number, name: string}[]>([])
   const [categoryError, setCategoryError] = useState('')
@@ -24,6 +28,8 @@ export default function MasterDataPage() {
 
   const handleAddCategory = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!canWrite) return
+
     if (!newCat.trim()) return
     setCategoryError('')
     const res = await fetch('/api/categories', {
@@ -42,12 +48,16 @@ export default function MasterDataPage() {
   }
 
   const startEditCategory = (cat: any) => {
+    if (!canWrite) return
+
     setEditingCatId(cat.id)
     setEditingCatName(cat.name)
     setEditingCatIcon(cat.icon || 'fa-wine-bottle')
   }
 
   const handleUpdateCategory = async (id: number) => {
+    if (!canWrite) return
+
     if (!editingCatName.trim()) return
     setCategoryError('')
     const res = await fetch(`/api/categories/${id}`, {
@@ -65,6 +75,8 @@ export default function MasterDataPage() {
   }
 
   const handleDeleteCategory = async (id: number) => {
+    if (!canWrite) return
+
     if (!window.confirm('คุณแน่ใจหรือไม่ว่าต้องการลบหมวดหมู่นี้?')) return
     await fetch(`/api/categories/${id}`, { method: 'DELETE' })
     fetchCategories()
@@ -72,6 +84,8 @@ export default function MasterDataPage() {
 
   const handleAddCompany = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!canWrite) return
+
     if (!newComp.trim()) return
     await fetch('/api/companies', {
       method: 'POST',
@@ -83,6 +97,8 @@ export default function MasterDataPage() {
   }
 
   const handleDeleteCompany = async (id: number) => {
+    if (!canWrite) return
+
     if (!window.confirm('คุณแน่ใจหรือไม่ว่าต้องการลบบริษัทนี้?')) return
     await fetch(`/api/companies/${id}`, { method: 'DELETE' })
     fetchCompanies()
@@ -95,6 +111,12 @@ export default function MasterDataPage() {
         <p className="text-slate-500 text-sm mt-1">จัดการหมวดหมู่สินค้าและบริษัทคู่ค้า (Master Data)</p>
       </div>
 
+      {!canWrite && (
+        <div className="mb-6 rounded-3xl border border-amber-100 bg-amber-50 px-5 py-4 text-sm font-medium text-amber-800">
+          โหมดอ่านอย่างเดียว: บัญชีนี้สามารถดูข้อมูลพื้นฐานได้ แต่ไม่สามารถเพิ่ม แก้ไข หรือลบข้อมูล
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Categories Section */}
         <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 flex flex-col">
@@ -102,6 +124,7 @@ export default function MasterDataPage() {
             <i className="fas fa-tags text-blue-500 mr-2"></i> หมวดหมู่สินค้า
           </h3>
           
+          {canWrite && (
           <form className="mb-6 flex gap-2 items-center" onSubmit={handleAddCategory}>
             <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center bg-slate-50 border border-slate-200 rounded-xl text-slate-500">
                <i className={`fas ${newCatIcon} text-lg`}></i>
@@ -126,6 +149,7 @@ export default function MasterDataPage() {
               เพิ่ม
             </button>
           </form>
+          )}
           {categoryError && (
             <p className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
               {categoryError}
@@ -141,7 +165,7 @@ export default function MasterDataPage() {
                 {categories.map(cat => (
                   <tr key={cat.id} className="group hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3 font-semibold text-slate-700 flex justify-between items-center rounded-xl min-h-[56px]">
-                      {editingCatId === cat.id ? (
+                      {canWrite && editingCatId === cat.id ? (
                         <div className="flex gap-2 w-full animate-fade-in-up items-center">
                           <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-white border border-blue-200 rounded-lg text-slate-500">
                             <i className={`fas ${editingCatIcon}`}></i>
@@ -172,6 +196,7 @@ export default function MasterDataPage() {
                       ) : (
                         <>
                           <span className="flex items-center"><i className={`fas ${cat.icon || 'fa-box'} w-6 text-center text-slate-400 mr-2 text-lg`}></i> {cat.name}</span>
+                          {canWrite && (
                           <div className="opacity-0 group-hover:opacity-100 transition-opacity flex">
                             <button 
                               onClick={() => startEditCategory(cat)}
@@ -188,6 +213,7 @@ export default function MasterDataPage() {
                               <i className="fas fa-trash"></i>
                             </button>
                           </div>
+                          )}
                         </>
                       )}
                     </td>
@@ -207,6 +233,7 @@ export default function MasterDataPage() {
             <i className="fas fa-building text-blue-500 mr-2"></i> บริษัท (Company)
           </h3>
           
+          {canWrite && (
           <form className="mb-6 flex gap-2" onSubmit={handleAddCompany}>
             <input 
               type="text" 
@@ -219,6 +246,7 @@ export default function MasterDataPage() {
               เพิ่ม
             </button>
           </form>
+          )}
 
           <div className="flex-1 overflow-y-auto max-h-[500px]">
             <table className="w-full text-left">
@@ -230,6 +258,7 @@ export default function MasterDataPage() {
                   <tr key={comp.id} className="group hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3 font-semibold text-slate-700 flex justify-between items-center rounded-xl">
                       {comp.name}
+                      {canWrite && (
                       <button 
                         onClick={() => handleDeleteCompany(comp.id)}
                         className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity p-2"
@@ -237,6 +266,7 @@ export default function MasterDataPage() {
                       >
                         <i className="fas fa-trash"></i>
                       </button>
+                      )}
                     </td>
                   </tr>
                 ))}

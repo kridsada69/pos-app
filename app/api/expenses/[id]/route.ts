@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireWriteAccess } from '@/lib/authz'
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { response } = await requireWriteAccess('expenses')
+    if (response) return response
+
     const { id } = await params
     const expenseId = Number(id)
 

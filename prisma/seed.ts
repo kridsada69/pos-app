@@ -14,6 +14,7 @@ async function main() {
       email: 'somchai@example.com',
       mobile: '0812345678',
       password: passwordHash,
+      role: 'employee',
       isActive: true,
       deletedAt: null,
     },
@@ -23,6 +24,7 @@ async function main() {
       email: 'somchai@example.com',
       mobile: '0812345678',
       password: passwordHash,
+      role: 'employee',
     },
   })
 

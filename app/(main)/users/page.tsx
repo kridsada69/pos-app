@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from 'react'
+import { roleLabel, USER_ROLES, type UserRole } from '@/lib/roles'
 
 type UserStatus = 'active' | 'inactive'
 
@@ -10,6 +11,7 @@ type UserRow = {
   username: string
   email: string
   mobile: string
+  role: UserRole
   createdAt: string
   updatedAt: string
   deletedAt: string | null
@@ -28,6 +30,7 @@ type FormState = {
   mobile: string
   password: string
   status: UserStatus
+  role: UserRole
 }
 
 function createFormState(user: UserRow): FormState {
@@ -39,6 +42,7 @@ function createFormState(user: UserRow): FormState {
     mobile: user.mobile,
     password: '',
     status: user.status,
+    role: user.role,
   }
 }
 
@@ -90,7 +94,7 @@ export default function UsersPage() {
     if (!keyword) return users
 
     return users.filter((user) =>
-      [user.name, user.username, user.email, user.mobile, user.status].some((value) =>
+      [user.name, user.username, user.email, user.mobile, user.status, roleLabel(user.role)].some((value) =>
         value.toLowerCase().includes(keyword)
       )
     )
@@ -346,6 +350,27 @@ export default function UsersPage() {
               </select>
             </label>
 
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold text-slate-700">Role</span>
+              <select
+                value={form.role}
+                onChange={(event) =>
+                  setForm((currentForm) =>
+                    currentForm
+                      ? { ...currentForm, role: event.target.value as UserRole }
+                      : currentForm
+                  )
+                }
+                className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+              >
+                {USER_ROLES.map((role) => (
+                  <option key={role} value={role}>
+                    {roleLabel(role)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
             <div className="lg:col-span-2 flex flex-col gap-3 rounded-2xl bg-slate-50 p-4 text-sm text-slate-500 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <p>
@@ -387,6 +412,7 @@ export default function UsersPage() {
                 <th className="px-6 py-4">Username</th>
                 <th className="px-6 py-4">Email</th>
                 <th className="px-6 py-4">เบอร์โทร</th>
+                <th className="px-6 py-4">Role</th>
                 <th className="px-6 py-4">สถานะ</th>
                 <th className="px-6 py-4 text-center">จำนวนบิล</th>
                 <th className="px-6 py-4">วันที่สมัคร</th>
@@ -416,6 +442,11 @@ export default function UsersPage() {
                   <td className="px-6 py-5 font-semibold text-slate-600">@{user.username}</td>
                   <td className="px-6 py-5 text-slate-600">{user.email}</td>
                   <td className="px-6 py-5 text-slate-600">{user.mobile}</td>
+                  <td className="px-6 py-5">
+                    <span className="inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
+                      {roleLabel(user.role)}
+                    </span>
+                  </td>
                   <td className="px-6 py-5">
                     <span
                       className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${
@@ -458,7 +489,7 @@ export default function UsersPage() {
               ))}
               {!isLoading && filteredUsers.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-6 py-14 text-center text-slate-400">
+                  <td colSpan={9} className="px-6 py-14 text-center text-slate-400">
                     <i className="fas fa-user-slash mb-3 block text-3xl text-slate-300"></i>
                     ไม่พบผู้ใช้งานที่ตรงกับคำค้นหา
                   </td>
@@ -466,7 +497,7 @@ export default function UsersPage() {
               )}
               {isLoading && (
                 <tr>
-                  <td colSpan={8} className="px-6 py-14 text-center text-slate-400">
+                  <td colSpan={9} className="px-6 py-14 text-center text-slate-400">
                     <i className="fas fa-circle-notch fa-spin mb-3 block text-3xl text-blue-400"></i>
                     กำลังโหลดข้อมูลผู้ใช้งาน...
                   </td>

@@ -1,27 +1,37 @@
 "use client"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
+import { canAccessPath, roleLabel } from '@/lib/roles'
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const pathname = usePathname()
+  const router = useRouter()
   const { user, logout, loading } = useAuth()
+
+  useEffect(() => {
+    if (!loading && user && !canAccessPath(user.role, pathname)) {
+      router.replace('/dashboard')
+    }
+  }, [loading, pathname, router, user])
 
   if (loading) return null;
 
   const navItems = [
-    { name: 'Dashboard', path: '/dashboard', icon: 'fa-chart-line', match: ['/dashboard'] },
-    { name: 'คิดเงิน (POS)', path: '/pos', icon: 'fa-cash-register', match: ['/pos'] },
-    { name: 'โปรโมชั่น-Promotion', path: '/promotion', icon: 'fa-tags', match: ['/promotion'] },
-    { name: 'ของแถม', path: '/gifts', icon: 'fa-gift', match: ['/gifts'] },
-    { name: 'สรุปค่าใช้จ่าย', path: '/expense-summary', icon: 'fa-file-invoice-dollar', match: ['/expense-summary'] },
-    { name: 'ประวัติการขาย', path: '/history', icon: 'fa-history', match: ['/history'] },
-    { name: 'สต็อกสินค้า', path: '/stock', icon: 'fa-boxes', match: ['/stock'] },
-    { name: 'ข้อมูลพื้นฐาน', path: '/master-data', icon: 'fa-database', match: ['/master-data'] },
-    { name: 'ผู้ใช้งาน', path: '/users', icon: 'fa-users', match: ['/users'] },
-  ]
+    { name: 'Dashboard', path: '/dashboard', icon: 'fa-chart-line', match: ['/dashboard'], visible: true },
+    { name: 'คิดเงิน (POS)', path: '/pos', icon: 'fa-cash-register', match: ['/pos'], visible: true },
+    { name: 'โปรโมชั่น-Promotion', path: '/promotion', icon: 'fa-tags', match: ['/promotion'], visible: true },
+    { name: 'ของแถม', path: '/gifts', icon: 'fa-gift', match: ['/gifts'], visible: true },
+    { name: 'สรุปค่าใช้จ่าย', path: '/expense-summary', icon: 'fa-file-invoice-dollar', match: ['/expense-summary'], visible: canAccessPath(user?.role, '/expense-summary') },
+    { name: 'ประวัติการขาย', path: '/history', icon: 'fa-history', match: ['/history'], visible: true },
+    { name: 'สต็อกสินค้า', path: '/stock', icon: 'fa-boxes', match: ['/stock'], visible: true },
+    { name: 'ข้อมูลพื้นฐาน', path: '/master-data', icon: 'fa-database', match: ['/master-data'], visible: canAccessPath(user?.role, '/master-data') },
+    { name: 'ผู้ใช้งาน', path: '/users', icon: 'fa-users', match: ['/users'], visible: canAccessPath(user?.role, '/users') },
+  ].filter((item) => item.visible)
+
+  if (user && !canAccessPath(user.role, pathname)) return null
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row relative bg-slate-50 text-slate-800">
@@ -89,7 +99,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
               <i className="fas fa-user"></i>
             </div>
             <div>
-              <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">แอดมินปัจจุบัน</p>
+              <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">{roleLabel(user?.role)}</p>
               <p className="text-slate-800 font-bold leading-tight">{user?.name || 'กำลังโหลด...'}</p>
             </div>
           </div>

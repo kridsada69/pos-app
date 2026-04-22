@@ -2,7 +2,9 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 
-type User = { id: number, name: string, username: string }
+import type { UserRole } from '@/lib/roles'
+
+type User = { id: number, name: string, username: string, role: UserRole }
 
 type AuthContextType = {
   user: User | null

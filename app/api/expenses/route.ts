@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireWriteAccess } from '@/lib/authz'
 
 export async function GET(request: Request) {
   try {
@@ -45,6 +46,9 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const { response } = await requireWriteAccess('expenses')
+    if (response) return response
+
     const body = await request.json()
     const name = String(body.name || '').trim()
     const amount = Number(body.amount)

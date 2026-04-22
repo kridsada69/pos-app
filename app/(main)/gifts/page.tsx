@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useMemo, useState } from 'react'
+import { useAuth } from '@/context/AuthContext'
+import { canWriteFeature } from '@/lib/roles'
 
 type Product = {
   id: number
@@ -36,12 +38,14 @@ const initialForm = {
 }
 
 export default function GiftsPage() {
+  const { user } = useAuth()
   const [products, setProducts] = useState<Product[]>([])
   const [gifts, setGifts] = useState<GiftCampaign[]>([])
   const [form, setForm] = useState(initialForm)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const canWrite = canWriteFeature(user?.role, 'gifts')
 
   const fetchProducts = async () => {
     const res = await fetch('/api/products?limit=1000')
@@ -81,6 +85,8 @@ export default function GiftsPage() {
   }
 
   const handleEdit = (gift: GiftCampaign) => {
+    if (!canWrite) return
+
     setEditingId(gift.id)
     setForm({
       name: gift.name,
@@ -96,6 +102,8 @@ export default function GiftsPage() {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
+    if (!canWrite) return
+
     setIsSubmitting(true)
     setError('')
 
@@ -133,6 +141,8 @@ export default function GiftsPage() {
   }
 
   const handleDelete = async (giftId: number) => {
+    if (!canWrite) return
+
     if (!window.confirm('คุณแน่ใจหรือไม่ว่าต้องการลบของแถมนี้?')) return
 
     await fetch(`/api/gifts/${giftId}`, { method: 'DELETE' })
@@ -150,6 +160,7 @@ export default function GiftsPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-8 xl:grid-cols-[420px_minmax(0,1fr)]">
+        {canWrite ? (
         <form onSubmit={handleSubmit} className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
           <div className="mb-6 flex items-center justify-between">
             <div>
@@ -329,6 +340,12 @@ export default function GiftsPage() {
             </button>
           </div>
         </form>
+        ) : (
+          <div className="rounded-3xl border border-amber-100 bg-amber-50 p-6 text-amber-800">
+            <h3 className="text-lg font-black">โหมดอ่านอย่างเดียว</h3>
+            <p className="mt-2 text-sm font-medium">บัญชีนี้สามารถดูรายการของแถมได้ แต่ไม่สามารถสร้าง แก้ไข หรือลบของแถม</p>
+          </div>
+        )}
 
         <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
           <div className="mb-6">
@@ -376,6 +393,7 @@ export default function GiftsPage() {
                     )}
                   </div>
 
+                  {canWrite && (
                   <div className="flex gap-2">
                     <button
                       type="button"
@@ -392,6 +410,7 @@ export default function GiftsPage() {
                       ลบ
                     </button>
                   </div>
+                  )}
                 </div>
               </div>
             ))}

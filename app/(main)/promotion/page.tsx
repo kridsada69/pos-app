@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useMemo, useState } from 'react'
+import { useAuth } from '@/context/AuthContext'
+import { canWriteFeature } from '@/lib/roles'
 
 type Product = {
   id: number
@@ -34,12 +36,14 @@ const initialForm = {
 }
 
 export default function PromotionPage() {
+  const { user } = useAuth()
   const [products, setProducts] = useState<Product[]>([])
   const [promotions, setPromotions] = useState<Promotion[]>([])
   const [form, setForm] = useState(initialForm)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const canWrite = canWriteFeature(user?.role, 'promotions')
 
   const fetchProducts = async () => {
     const res = await fetch('/api/products?limit=1000')
@@ -79,6 +83,8 @@ export default function PromotionPage() {
   }
 
   const handleEdit = (promotion: Promotion) => {
+    if (!canWrite) return
+
     setEditingId(promotion.id)
     setForm({
       name: promotion.name,
@@ -93,6 +99,8 @@ export default function PromotionPage() {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
+    if (!canWrite) return
+
     setIsSubmitting(true)
     setError('')
 
@@ -130,6 +138,8 @@ export default function PromotionPage() {
   }
 
   const handleDelete = async (promotionId: number) => {
+    if (!canWrite) return
+
     if (!window.confirm('คุณแน่ใจหรือไม่ว่าต้องการลบโปรโมชั่นนี้?')) return
 
     await fetch(`/api/promotions/${promotionId}`, { method: 'DELETE' })
@@ -154,6 +164,7 @@ export default function PromotionPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-8 xl:grid-cols-[420px_minmax(0,1fr)]">
+        {canWrite ? (
         <form onSubmit={handleSubmit} className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
           <div className="mb-6 flex items-center justify-between">
             <div>
@@ -314,6 +325,12 @@ export default function PromotionPage() {
             </button>
           </div>
         </form>
+        ) : (
+          <div className="rounded-3xl border border-amber-100 bg-amber-50 p-6 text-amber-800">
+            <h3 className="text-lg font-black">โหมดอ่านอย่างเดียว</h3>
+            <p className="mt-2 text-sm font-medium">บัญชีนี้สามารถดูรายการโปรโมชั่นได้ แต่ไม่สามารถสร้าง แก้ไข หรือลบโปรโมชั่น</p>
+          </div>
+        )}
 
         <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
           <div className="mb-6 flex items-center justify-between">
@@ -367,6 +384,7 @@ export default function PromotionPage() {
                     )}
                   </div>
 
+                  {canWrite && (
                   <div className="flex shrink-0 gap-2">
                     <button
                       type="button"
@@ -383,6 +401,7 @@ export default function PromotionPage() {
                       ลบ
                     </button>
                   </div>
+                  )}
                 </div>
               </div>
             ))}

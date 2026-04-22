@@ -35,9 +35,9 @@ export async function getSession() {
   return await decrypt(session);
 }
 
-export async function setSession(userId: number, name: string) {
+export async function setSession(userId: number, name: string, username: string, role: string) {
   const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-  const session = await encrypt({ userId, name, expires });
+  const session = await encrypt({ userId, name, username, role, expires });
 
   const cookieStore = await cookies();
   cookieStore.set("pos_session", session, { expires, httpOnly: true, sameSite: 'lax', path: '/' });

@@ -17,9 +17,9 @@ export async function POST(req: Request) {
     const valid = await bcrypt.compare(password, user.password)
     if (!valid) return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
 
-    await setSession(user.id, user.name)
+    await setSession(user.id, user.name, user.username, user.role)
 
-    return NextResponse.json({ success: true, user: { id: user.id, username: user.username, name: user.name } })
+    return NextResponse.json({ success: true, user: { id: user.id, username: user.username, name: user.name, role: user.role } })
   } catch (error) {
     console.error('Login route failed', error)
 

@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireWriteAccess } from '@/lib/authz'
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { response } = await requireWriteAccess('gifts')
+    if (response) return response
+
     const { id } = await params
     const giftId = Number(id)
     const body = await request.json()
@@ -79,6 +83,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { response } = await requireWriteAccess('gifts')
+    if (response) return response
+
     const { id } = await params
     const giftId = Number(id)
 
