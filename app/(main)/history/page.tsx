@@ -32,6 +32,7 @@ type Order = {
     giftCampaignName: string
     giftName: string
     cost: number
+    quantity?: number | null
   }[]
   items: OrderItem[]
 }
@@ -118,6 +119,13 @@ export default function HistoryPage() {
   }
 
   const formatCurrency = (amount: number) => `฿ ${amount.toFixed(2)}`
+  const getGiftBadgeText = (order: Order) => {
+    if (!order.giftSelections || order.giftSelections.length === 0) return ''
+    return order.giftSelections
+      .map((gift) => `${gift.giftCampaignName}: ${gift.giftName} x${gift.quantity || 1}`)
+      .join(' | ')
+  }
+
   const escapeCsvCell = (value: string | number | null | undefined) => {
     const normalized = value == null ? '' : String(value)
     return `"${normalized.replaceAll('"', '""')}"`
@@ -132,7 +140,7 @@ export default function HistoryPage() {
           const createdAt = new Date(order.createdAt)
           const giftSummary =
             order.giftSelections && order.giftSelections.length > 0
-              ? order.giftSelections.map((gift) => `${gift.giftCampaignName}: ${gift.giftName}`).join(' | ')
+              ? order.giftSelections.map((gift) => `${gift.giftCampaignName}: ${gift.giftName} x${gift.quantity || 1}`).join(' | ')
               : ''
 
           return order.items.map((item) => ({
@@ -316,7 +324,10 @@ export default function HistoryPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {groupedOrders[dateStr].map((order) => (
+                  {groupedOrders[dateStr].map((order) => {
+                    const giftBadgeText = getGiftBadgeText(order)
+
+                    return (
                     <React.Fragment key={order.id}>
                       <tr 
                         onClick={() => setExpandedId(expandedId === order.id ? null : order.id)}
@@ -331,6 +342,12 @@ export default function HistoryPage() {
                           {order.promotionLabel && (
                             <div className="mt-2 inline-flex rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-bold text-emerald-600">
                               ใช้โปร: {order.promotionLabel}
+                            </div>
+                          )}
+                          {giftBadgeText && (
+                            <div className="mt-2 inline-flex max-w-[260px] items-center rounded-full bg-violet-50 px-3 py-1 text-[11px] font-bold text-violet-600">
+                              <i className="fas fa-gift mr-1.5 text-violet-400"></i>
+                              <span className="truncate">ของแถม: {giftBadgeText}</span>
                             </div>
                           )}
                         </td>
@@ -410,9 +427,9 @@ export default function HistoryPage() {
                                         <div className="space-y-1">
                                           {order.giftSelections.map((gift) => (
                                             <p key={gift.id} className="text-slate-600">
-                                              {gift.giftCampaignName}: {gift.giftName}{' '}
+                                              {gift.giftCampaignName}: {gift.giftName} x{gift.quantity || 1}{' '}
                                               <span className="font-bold text-violet-600">
-                                                (ต้นทุน ฿ {gift.cost.toFixed(2)})
+                                                (ต้นทุน ฿ {(gift.cost * (gift.quantity || 1)).toFixed(2)})
                                               </span>
                                             </p>
                                           ))}
@@ -467,7 +484,7 @@ export default function HistoryPage() {
                         </tr>
                       )}
                     </React.Fragment>
-                  ))}
+                  )})}
                 </tbody>
               </table>
             </div>

@@ -224,6 +224,7 @@ export async function POST(req: Request) {
                   giftCampaignName: gift.giftCampaignName,
                   giftName: gift.giftName,
                   cost: gift.cost,
+                  quantity: gift.giftQuantity,
                 })),
               }
             : undefined,

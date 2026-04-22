@@ -183,7 +183,11 @@ export default function POSPage() {
   )
 
   const selectedGiftCost = useMemo(
-    () => selectedGiftCampaigns.reduce((sum, campaign) => sum + campaign.cost, 0),
+    () => selectedGiftCampaigns.reduce((sum, campaign) => sum + campaign.totalCost, 0),
+    [selectedGiftCampaigns]
+  )
+  const selectedGiftQuantity = useMemo(
+    () => selectedGiftCampaigns.reduce((sum, campaign) => sum + campaign.giftQuantity, 0),
     [selectedGiftCampaigns]
   )
 
@@ -460,7 +464,7 @@ export default function POSPage() {
               {selectedGiftCampaigns.length > 0 && (
                 <div className="mb-2 flex justify-between text-sm text-violet-600">
                   <span>ของแถมที่ลูกค้ารับ</span>
-                  <span>{selectedGiftCampaigns.length} รายการ • ต้นทุน ฿ {selectedGiftCost.toFixed(2)}</span>
+                  <span>{selectedGiftQuantity} ชิ้น • ต้นทุน ฿ {selectedGiftCost.toFixed(2)}</span>
                 </div>
               )}
               <div className="mb-2 flex justify-between text-sm text-slate-500">
@@ -601,10 +605,10 @@ export default function POSPage() {
                           <div>
                             <p className="text-sm font-bold text-slate-800">{gift.giftCampaignName}</p>
                             <p className="mt-1 text-xs text-slate-500">
-                              ของแถม: {gift.giftName} • ต้นทุน ฿ {gift.cost.toFixed(2)}
+                              ของแถม: {gift.giftName} x{gift.giftQuantity} • ต้นทุนรวม ฿ {gift.totalCost.toFixed(2)}
                             </p>
                             <p className="mt-1 text-xs text-slate-400">
-                              เข้าเงื่อนไข {gift.matchedQuantity} ชิ้น
+                              ซื้อครบ {gift.requiredQuantity} ชิ้น แถม 1 • เข้าเงื่อนไข {gift.matchedQuantity} ชิ้น
                               {!gift.appliesToAllProducts && gift.productNames.length > 0
                                 ? ` • สินค้าร่วมรายการ: ${gift.productNames.join(', ')}`
                                 : ''}
@@ -676,7 +680,7 @@ export default function POSPage() {
                   <span>ของแถมที่ลูกค้ารับ</span>
                   <span>
                     {selectedGiftCampaigns.length > 0
-                      ? `${selectedGiftCampaigns.length} รายการ • ต้นทุน ฿ ${selectedGiftCost.toFixed(2)}`
+                      ? `${selectedGiftQuantity} ชิ้น • ต้นทุน ฿ ${selectedGiftCost.toFixed(2)}`
                       : '-'}
                   </span>
                 </div>

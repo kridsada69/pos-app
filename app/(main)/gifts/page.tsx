@@ -14,6 +14,7 @@ type GiftCampaign = {
   name: string
   giftName: string
   cost: number
+  requiredQuantity: number
   appliesToAllProducts: boolean
   isActive: boolean
   createdAt: string
@@ -28,6 +29,7 @@ const initialForm = {
   name: '',
   giftName: '',
   cost: '',
+  requiredQuantity: '3',
   appliesToAllProducts: false,
   isActive: true,
   productIds: [] as number[],
@@ -84,6 +86,7 @@ export default function GiftsPage() {
       name: gift.name,
       giftName: gift.giftName,
       cost: String(gift.cost),
+      requiredQuantity: String(gift.requiredQuantity || 1),
       appliesToAllProducts: gift.appliesToAllProducts,
       isActive: gift.isActive,
       productIds: gift.products.map((item) => item.productId),
@@ -101,6 +104,7 @@ export default function GiftsPage() {
         name: form.name,
         giftName: form.giftName,
         cost: Number(form.cost),
+        requiredQuantity: Number(form.requiredQuantity),
         appliesToAllProducts: form.appliesToAllProducts,
         isActive: form.isActive,
         productIds: form.appliesToAllProducts ? [] : form.productIds,
@@ -150,7 +154,7 @@ export default function GiftsPage() {
           <div className="mb-6 flex items-center justify-between">
             <div>
               <h3 className="text-xl font-black text-slate-800">{editingId ? 'แก้ไขของแถม' : 'สร้างของแถมใหม่'}</h3>
-              <p className="mt-1 text-sm text-slate-400">ตัวอย่าง: ซื้อแมวสลิด รับแก้วแถม ต้นทุน 20 บาท</p>
+              <p className="mt-1 text-sm text-slate-400">ตัวอย่าง: ซื้อครบ 3 ชิ้น รับพวงกุญแจ 1 ชิ้น</p>
             </div>
             {editingId && (
               <button
@@ -200,10 +204,28 @@ export default function GiftsPage() {
               </div>
             </div>
 
+            <div>
+              <label className="mb-2 block text-sm font-bold text-slate-700">จำนวนสินค้าขั้นต่ำต่อของแถม 1 ชิ้น</label>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                inputMode="numeric"
+                value={form.requiredQuantity}
+                onChange={(e) => setForm((prev) => ({ ...prev, requiredQuantity: e.target.value }))}
+                placeholder="3"
+                className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-200"
+              />
+            </div>
+
             <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">ตัวอย่างต้นทุน</p>
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">ตัวอย่างเงื่อนไข</p>
               <p className="mt-1 text-sm font-bold text-slate-700">
-                {form.giftName || 'ของแถม'} ต้นทุน {Number(form.cost || 0).toFixed(2)} บาท
+                ซื้อครบ {Number(form.requiredQuantity || 1)} ชิ้น แถม {form.giftName || 'ของแถม'} 1 ชิ้น
+                {' '}• ถ้าซื้อครบ {Number(form.requiredQuantity || 1) * 2} ชิ้น แถม 2 ชิ้น
+              </p>
+              <p className="mt-1 text-xs font-semibold text-slate-500">
+                ต้นทุนต่อชิ้น ฿ {Number(form.cost || 0).toFixed(2)}
               </p>
             </div>
 
@@ -334,6 +356,9 @@ export default function GiftsPage() {
                     </div>
                     <p className="mt-2 text-sm font-semibold text-slate-600">
                       ของแถม: {gift.giftName} • ต้นทุน ฿ {Number(gift.cost).toFixed(2)}
+                    </p>
+                    <p className="mt-2 text-sm font-bold text-violet-600">
+                      ซื้อครบ {gift.requiredQuantity || 1} ชิ้น แถม 1 ชิ้น
                     </p>
                     <p className="mt-2 text-xs text-slate-400">
                       {gift.appliesToAllProducts

@@ -17,6 +17,7 @@ type SummaryOrder = {
   giftSelections: {
     giftCampaignId: number
     cost: number
+    quantity?: number | null
     giftCampaignName: string
     giftName: string
     giftCampaign: {
@@ -152,6 +153,7 @@ export function buildExpenseSummary({
     const giftCostByCompany = new Map<string, number>()
 
     for (const gift of order.giftSelections) {
+      const totalGiftCost = gift.cost * (gift.quantity || 1)
       const eligibleItems = gift.giftCampaign?.appliesToAllProducts
         ? order.items
         : order.items.filter((item) =>
@@ -178,7 +180,7 @@ export function buildExpenseSummary({
         const allocationBase = getAllocationBase(companyGroup)
         const ratio = eligibleBaseTotal > 0 ? allocationBase / eligibleBaseTotal : 0
         const currentCost = giftCostByCompany.get(company) || 0
-        giftCostByCompany.set(company, roundMoney(currentCost + gift.cost * ratio))
+        giftCostByCompany.set(company, roundMoney(currentCost + totalGiftCost * ratio))
       }
     }
 
@@ -212,7 +214,9 @@ export function buildExpenseSummary({
         avgProfitPerCan,
         note:
           order.giftSelections.length > 0
-            ? order.giftSelections.map((gift) => `${gift.giftCampaignName}: ${gift.giftName}`).join(', ')
+            ? order.giftSelections
+                .map((gift) => `${gift.giftCampaignName}: ${gift.giftName} x${gift.quantity || 1}`)
+                .join(', ')
             : null,
       })
 
@@ -435,6 +439,7 @@ export function buildProductCompanyReport({
 
     const giftCostByCompany = new Map<string, number>()
     for (const gift of order.giftSelections) {
+      const totalGiftCost = gift.cost * (gift.quantity || 1)
       const eligibleItems = gift.giftCampaign?.appliesToAllProducts
         ? order.items
         : order.items.filter((item) =>
@@ -459,7 +464,7 @@ export function buildProductCompanyReport({
         const ratio = eligibleBaseTotal > 0 ? getAllocationBase(group) / eligibleBaseTotal : 0
         giftCostByCompany.set(
           company,
-          roundMoney((giftCostByCompany.get(company) || 0) + gift.cost * ratio)
+          roundMoney((giftCostByCompany.get(company) || 0) + totalGiftCost * ratio)
         )
       }
     }

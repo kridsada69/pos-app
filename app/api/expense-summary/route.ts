@@ -67,6 +67,7 @@ export async function GET(request: Request) {
             select: {
               giftCampaignId: true,
               cost: true,
+              quantity: true,
               giftCampaignName: true,
               giftName: true,
               giftCampaign: {

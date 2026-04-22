@@ -38,6 +38,7 @@ export async function POST(request: Request) {
     const name = String(body.name || '').trim()
     const giftName = String(body.giftName || '').trim()
     const cost = Number(body.cost)
+    const requiredQuantity = Number(body.requiredQuantity)
     const appliesToAllProducts = Boolean(body.appliesToAllProducts)
     const isActive = body.isActive !== false
     const productIds = Array.isArray(body.productIds)
@@ -46,7 +47,14 @@ export async function POST(request: Request) {
           .filter((id) => Number.isInteger(id) && id > 0)
       : []
 
-    if (!name || !giftName || !Number.isFinite(cost) || cost < 0) {
+    if (
+      !name ||
+      !giftName ||
+      !Number.isFinite(cost) ||
+      cost < 0 ||
+      !Number.isInteger(requiredQuantity) ||
+      requiredQuantity <= 0
+    ) {
       return NextResponse.json({ error: 'ข้อมูลของแถมไม่ถูกต้อง' }, { status: 400 })
     }
 
@@ -59,6 +67,7 @@ export async function POST(request: Request) {
         name,
         giftName,
         cost,
+        requiredQuantity,
         appliesToAllProducts,
         isActive,
         products: appliesToAllProducts

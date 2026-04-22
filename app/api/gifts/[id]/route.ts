@@ -9,6 +9,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const name = String(body.name || '').trim()
     const giftName = String(body.giftName || '').trim()
     const cost = Number(body.cost)
+    const requiredQuantity = Number(body.requiredQuantity)
     const appliesToAllProducts = Boolean(body.appliesToAllProducts)
     const isActive = body.isActive !== false
     const productIds = Array.isArray(body.productIds)
@@ -17,7 +18,15 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
           .filter((item) => Number.isInteger(item) && item > 0)
       : []
 
-    if (!giftId || !name || !giftName || !Number.isFinite(cost) || cost < 0) {
+    if (
+      !giftId ||
+      !name ||
+      !giftName ||
+      !Number.isFinite(cost) ||
+      cost < 0 ||
+      !Number.isInteger(requiredQuantity) ||
+      requiredQuantity <= 0
+    ) {
       return NextResponse.json({ error: 'ข้อมูลของแถมไม่ถูกต้อง' }, { status: 400 })
     }
 
@@ -31,6 +40,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         name,
         giftName,
         cost,
+        requiredQuantity,
         appliesToAllProducts,
         isActive,
         products: {

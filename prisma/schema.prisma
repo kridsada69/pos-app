@@ -118,6 +118,7 @@ model GiftCampaign {
   name                 String
   giftName             String
   cost                 Float
+  requiredQuantity     Int                   @default(1)
   appliesToAllProducts Boolean               @default(false)
   isActive             Boolean               @default(true)
   createdAt            DateTime              @default(now())
@@ -142,6 +143,7 @@ model OrderGiftSelection {
   giftCampaignName String
   giftName         String
   cost             Float
+  quantity         Int          @default(1)
   createdAt        DateTime     @default(now())
   order            Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
   giftCampaign     GiftCampaign @relation(fields: [giftCampaignId], references: [id])
