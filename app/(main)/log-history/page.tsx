@@ -45,6 +45,25 @@ function formatDateTime(value: string) {
   })
 }
 
+function entityIdLabel(log: ActivityLog) {
+  if (!log.entityId) return ''
+
+  const labels: Record<string, string> = {
+    auth: 'User ID',
+    user: 'User ID',
+    order: 'INV',
+    stock: 'Product ID',
+    promotion: 'Promotion ID',
+    gift: 'Gift ID',
+    category: 'Category ID',
+    company: 'Company ID',
+    expense: 'Expense ID',
+  }
+
+  const label = labels[log.entity] || 'ID'
+  return `${label}: ${log.entityId}`
+}
+
 export default function LogHistoryPage() {
   const [logs, setLogs] = useState<ActivityLog[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -161,7 +180,7 @@ export default function LogHistoryPage() {
                   </td>
                   <td className="px-6 py-5">
                     <p className="font-semibold text-slate-700">{log.summary}</p>
-                    {log.entityId && <p className="mt-1 text-xs text-slate-400">ID: {log.entityId}</p>}
+                    {log.entityId && <p className="mt-1 text-xs text-slate-400">{entityIdLabel(log)}</p>}
                   </td>
                   <td className="px-6 py-5">
                     <p className="font-mono text-xs font-bold text-slate-600">{log.httpMethod}</p>
