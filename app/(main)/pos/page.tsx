@@ -170,8 +170,7 @@ export default function POSPage() {
   )
 
   useEffect(() => {
-    const availableIds = new Set(applicableGiftCampaigns.map((campaign) => campaign.giftCampaignId))
-    setSelectedGiftCampaignIds((prev) => prev.filter((id) => availableIds.has(id)))
+    setSelectedGiftCampaignIds(applicableGiftCampaigns.map((campaign) => campaign.giftCampaignId))
   }, [applicableGiftCampaigns])
 
   const selectedGiftCampaigns = useMemo(
@@ -588,7 +587,7 @@ export default function POSPage() {
               <div className="mb-6 rounded-2xl border border-violet-100 bg-violet-50 p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <p className="text-sm font-black text-violet-700">ของแถม</p>
-                  <span className="text-xs font-bold text-violet-500">เลือกได้ตอนปิดบิล</span>
+                  <span className="text-xs font-bold text-violet-500">เลือกไว้ให้อัตโนมัติ</span>
                 </div>
 
                 {applicableGiftCampaigns.length > 0 ? (
