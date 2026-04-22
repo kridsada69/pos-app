@@ -15,6 +15,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     { name: 'Dashboard', path: '/dashboard', icon: 'fa-chart-line', match: ['/dashboard'] },
     { name: 'คิดเงิน (POS)', path: '/pos', icon: 'fa-cash-register', match: ['/pos'] },
     { name: 'โปรโมชั่น-Promotion', path: '/promotion', icon: 'fa-tags', match: ['/promotion'] },
+    { name: 'ของแถม', path: '/gifts', icon: 'fa-gift', match: ['/gifts'] },
+    { name: 'สรุปค่าใช้จ่าย', path: '/expense-summary', icon: 'fa-file-invoice-dollar', match: ['/expense-summary'] },
     { name: 'ประวัติการขาย', path: '/history', icon: 'fa-history', match: ['/history'] },
     { name: 'สต็อกสินค้า', path: '/stock', icon: 'fa-boxes', match: ['/stock'] },
     { name: 'ข้อมูลพื้นฐาน', path: '/master-data', icon: 'fa-database', match: ['/master-data'] },

@@ -5,8 +5,11 @@ type OrderItem = {
   id: number
   quantity: number
   price: number
+  productName?: string | null
+  company?: string | null
   product?: {
     name?: string | null
+    company?: string | null
   } | null
 }
 
@@ -24,6 +27,12 @@ type Order = {
   cashier?: {
     name?: string | null
   } | null
+  giftSelections?: {
+    id: number
+    giftCampaignName: string
+    giftName: string
+    cost: number
+  }[]
   items: OrderItem[]
 }
 
@@ -32,6 +41,7 @@ export default function HistoryPage() {
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isUploading, setIsUploading] = useState<number | null>(null)
+  const [isExporting, setIsExporting] = useState(false)
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
 
@@ -108,6 +118,106 @@ export default function HistoryPage() {
   }
 
   const formatCurrency = (amount: number) => `฿ ${amount.toFixed(2)}`
+  const escapeCsvCell = (value: string | number | null | undefined) => {
+    const normalized = value == null ? '' : String(value)
+    return `"${normalized.replaceAll('"', '""')}"`
+  }
+
+  const handleExportHistory = () => {
+    setIsExporting(true)
+
+    try {
+      const detailRows = orders
+        .flatMap((order) => {
+          const createdAt = new Date(order.createdAt)
+          const giftSummary =
+            order.giftSelections && order.giftSelections.length > 0
+              ? order.giftSelections.map((gift) => `${gift.giftCampaignName}: ${gift.giftName}`).join(' | ')
+              : ''
+
+          return order.items.map((item) => ({
+            date: createdAt.toLocaleDateString('th-TH'),
+            time: createdAt.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
+            invoiceNo: `INV-${order.id.toString().padStart(4, '0')}`,
+            cashierName: order.cashier?.name || '',
+            company: item.company || item.product?.company || 'ไม่ระบุบริษัท',
+            productName: item.productName || item.product?.name || 'สินค้าถูกลบ',
+            quantity: item.quantity,
+            unitPrice: item.price,
+            lineTotal: item.quantity * item.price,
+            orderTotal: order.total,
+            promotionLabel: order.promotionLabel || '',
+            promotionDiscount: order.promotionDiscount || 0,
+            manualDiscount: order.manualDiscount || 0,
+            tax: order.tax || 0,
+            note: order.note || '',
+            giftSummary,
+          }))
+        })
+        .sort((a, b) => {
+          if (a.invoiceNo !== b.invoiceNo) return a.invoiceNo.localeCompare(b.invoiceNo)
+          if (a.company !== b.company) return a.company.localeCompare(b.company)
+          return a.productName.localeCompare(b.productName)
+        })
+
+      const csvRows = [
+        ['Export ประวัติการขาย แยกตามเลขที่บิล สินค้า และบริษัท'],
+        ['ช่วงวันที่', `${startDate || 'ทั้งหมด'} ถึง ${endDate || 'ทั้งหมด'}`],
+        ['จำนวนบิล', orders.length],
+        ['จำนวนแถวรายการ', detailRows.length],
+        [],
+        [
+          'วันที่',
+          'เวลา',
+          'เลขที่บิล',
+          'แคชเชียร์',
+          'บริษัท',
+          'สินค้า',
+          'จำนวน',
+          'ราคาต่อหน่วย',
+          'ยอดรวมสินค้า',
+          'ยอดรวมบิล',
+          'โปรโมชัน',
+          'ส่วนลดโปรโมชัน',
+          'ส่วนลดกำหนดเอง',
+          'ภาษี',
+          'หมายเหตุ',
+          'ของแถม',
+        ],
+        ...detailRows.map((row) => [
+          row.date,
+          row.time,
+          row.invoiceNo,
+          row.cashierName,
+          row.company,
+          row.productName,
+          row.quantity,
+          row.unitPrice,
+          row.lineTotal,
+          row.orderTotal,
+          row.promotionLabel,
+          row.promotionDiscount,
+          row.manualDiscount,
+          row.tax,
+          row.note,
+          row.giftSummary,
+        ]),
+      ]
+
+      const csvContent = `\uFEFF${csvRows
+        .map((row) => row.map((cell) => escapeCsvCell(cell)).join(','))
+        .join('\n')}`
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `sales-history-${startDate || 'all'}-to-${endDate || 'all'}.csv`
+      link.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   return (
     <>
@@ -118,14 +228,23 @@ export default function HistoryPage() {
             <h2 className="text-3xl font-black text-slate-800 tracking-tight">ประวัติการขาย</h2>
             <p className="text-slate-500 text-sm mt-1">รายการย้อนหลังทั้งหมด</p>
           </div>
-          {(startDate || endDate) && (
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => { setStartDate(''); setEndDate(''); }}
-              className="text-xs font-bold text-slate-400 hover:text-red-500 transition flex items-center gap-1.5 bg-slate-100 hover:bg-red-50 px-3 py-2 rounded-xl"
+              onClick={handleExportHistory}
+              disabled={isExporting || orders.length === 0}
+              className="text-xs font-bold text-emerald-700 transition flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50 px-3 py-2 rounded-xl"
             >
-              <i className="fas fa-times-circle"></i> ล้างตัวกรอง
+              <i className="fas fa-file-csv"></i> {isExporting ? 'กำลัง export...' : 'Export CSV'}
             </button>
-          )}
+            {(startDate || endDate) && (
+              <button
+                onClick={() => { setStartDate(''); setEndDate(''); }}
+                className="text-xs font-bold text-slate-400 hover:text-red-500 transition flex items-center gap-1.5 bg-slate-100 hover:bg-red-50 px-3 py-2 rounded-xl"
+              >
+                <i className="fas fa-times-circle"></i> ล้างตัวกรอง
+              </button>
+            )}
+          </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
@@ -230,7 +349,10 @@ export default function HistoryPage() {
                                     <div key={item.id} className="flex justify-between items-center text-sm">
                                       <div className="font-semibold text-slate-700">
                                         <span className="text-blue-500 bg-blue-50 px-2 py-1 rounded-md text-xs mr-2">{item.quantity}x</span>
-                                        {item.product?.name || 'สินค้าถูกลบ'}
+                                        {item.productName || item.product?.name || 'สินค้าถูกลบ'}
+                                        <span className="ml-2 text-xs font-bold text-slate-400">
+                                          ({item.company || item.product?.company || 'ไม่ระบุบริษัท'})
+                                        </span>
                                       </div>
                                       <div className="font-bold text-slate-600">฿ {(item.price * item.quantity).toFixed(2)}</div>
                                     </div>
@@ -281,6 +403,23 @@ export default function HistoryPage() {
                                     <div>
                                       <p className="text-xs font-bold text-slate-400 mb-1">หมายเหตุ</p>
                                       <p className="whitespace-pre-wrap text-slate-600">{order.note || 'ไม่มี'}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs font-bold text-slate-400 mb-1">ของแถม</p>
+                                      {order.giftSelections && order.giftSelections.length > 0 ? (
+                                        <div className="space-y-1">
+                                          {order.giftSelections.map((gift) => (
+                                            <p key={gift.id} className="text-slate-600">
+                                              {gift.giftCampaignName}: {gift.giftName}{' '}
+                                              <span className="font-bold text-violet-600">
+                                                (ต้นทุน ฿ {gift.cost.toFixed(2)})
+                                              </span>
+                                            </p>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <p className="text-slate-600">ไม่มี</p>
+                                      )}
                                     </div>
                                   </div>
                                 </div>

@@ -8,6 +8,10 @@ import {
   type AppliedPromotion,
   type PromotionDefinition,
 } from '@/lib/promotion-utils'
+import {
+  getApplicableGiftCampaigns,
+  type GiftCampaignDefinition,
+} from '@/lib/gift-utils'
 
 type Product = {
   id: number
@@ -32,11 +36,13 @@ type Category = {
 }
 
 type Promotion = PromotionDefinition
+type GiftCampaign = GiftCampaignDefinition
 
 export default function POSPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [promotions, setPromotions] = useState<Promotion[]>([])
+  const [giftCampaigns, setGiftCampaigns] = useState<GiftCampaign[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
   const [activeTypeTab, setActiveTypeTab] = useState('all')
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false)
@@ -45,6 +51,7 @@ export default function POSPage() {
   const [isTaxEnabled, setIsTaxEnabled] = useState(false)
   const [manualDiscountInput, setManualDiscountInput] = useState('')
   const [note, setNote] = useState('')
+  const [selectedGiftCampaignIds, setSelectedGiftCampaignIds] = useState<number[]>([])
 
   const fetchActiveProducts = () => {
     fetch('/api/products?status=active&limit=1000')
@@ -58,9 +65,16 @@ export default function POSPage() {
       .then((json) => setPromotions(Array.isArray(json) ? json : []))
   }
 
+  const fetchActiveGifts = () => {
+    fetch('/api/gifts?status=active')
+      .then((res) => res.json())
+      .then((json) => setGiftCampaigns(Array.isArray(json) ? json : []))
+  }
+
   useEffect(() => {
     fetchActiveProducts()
     fetchActivePromotions()
+    fetchActiveGifts()
     fetch('/api/categories').then((res) => res.json()).then(setCategories)
   }, [])
 
@@ -150,6 +164,29 @@ export default function POSPage() {
     [promotionCartItems, promotions]
   )
 
+  const applicableGiftCampaigns = useMemo(
+    () => getApplicableGiftCampaigns(giftCampaigns, promotionCartItems),
+    [giftCampaigns, promotionCartItems]
+  )
+
+  useEffect(() => {
+    const availableIds = new Set(applicableGiftCampaigns.map((campaign) => campaign.giftCampaignId))
+    setSelectedGiftCampaignIds((prev) => prev.filter((id) => availableIds.has(id)))
+  }, [applicableGiftCampaigns])
+
+  const selectedGiftCampaigns = useMemo(
+    () =>
+      applicableGiftCampaigns.filter((campaign) =>
+        selectedGiftCampaignIds.includes(campaign.giftCampaignId)
+      ),
+    [applicableGiftCampaigns, selectedGiftCampaignIds]
+  )
+
+  const selectedGiftCost = useMemo(
+    () => selectedGiftCampaigns.reduce((sum, campaign) => sum + campaign.cost, 0),
+    [selectedGiftCampaigns]
+  )
+
   const promotionStack = useMemo(
     () => getBestPromotionStack(promotions, promotionCartItems),
     [promotionCartItems, promotions]
@@ -194,6 +231,7 @@ export default function POSPage() {
           manualDiscount,
           note: note.trim(),
           isTaxEnabled,
+          selectedGiftCampaignIds,
           items: cart.map((item) => ({
             productId: item.product.id,
             quantity: item.quantity,
@@ -209,6 +247,7 @@ export default function POSPage() {
         setManualDiscountInput('')
         setNote('')
         setIsTaxEnabled(false)
+        setSelectedGiftCampaignIds([])
         setIsConfirmModalOpen(false)
         fetchActiveProducts()
       } else {
@@ -418,6 +457,12 @@ export default function POSPage() {
                   <span>-฿ {manualDiscount.toFixed(2)}</span>
                 </div>
               )}
+              {selectedGiftCampaigns.length > 0 && (
+                <div className="mb-2 flex justify-between text-sm text-violet-600">
+                  <span>ของแถมที่ลูกค้ารับ</span>
+                  <span>{selectedGiftCampaigns.length} รายการ • ต้นทุน ฿ {selectedGiftCost.toFixed(2)}</span>
+                </div>
+              )}
               <div className="mb-2 flex justify-between text-sm text-slate-500">
                 <span>ยอดก่อนภาษี</span>
                 <span>฿ {discountedSubtotal.toFixed(2)}</span>
@@ -536,6 +581,56 @@ export default function POSPage() {
                 )}
               </div>
 
+              <div className="mb-6 rounded-2xl border border-violet-100 bg-violet-50 p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-sm font-black text-violet-700">ของแถม</p>
+                  <span className="text-xs font-bold text-violet-500">เลือกได้ตอนปิดบิล</span>
+                </div>
+
+                {applicableGiftCampaigns.length > 0 ? (
+                  <div className="space-y-3">
+                    {applicableGiftCampaigns.map((gift) => {
+                      const checked = selectedGiftCampaignIds.includes(gift.giftCampaignId)
+                      return (
+                        <label
+                          key={gift.giftCampaignId}
+                          className={`flex cursor-pointer items-start justify-between gap-3 rounded-xl border px-4 py-3 ${
+                            checked ? 'border-violet-200 bg-white' : 'border-violet-100 bg-violet-50/80'
+                          }`}
+                        >
+                          <div>
+                            <p className="text-sm font-bold text-slate-800">{gift.giftCampaignName}</p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              ของแถม: {gift.giftName} • ต้นทุน ฿ {gift.cost.toFixed(2)}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-400">
+                              เข้าเงื่อนไข {gift.matchedQuantity} ชิ้น
+                              {!gift.appliesToAllProducts && gift.productNames.length > 0
+                                ? ` • สินค้าร่วมรายการ: ${gift.productNames.join(', ')}`
+                                : ''}
+                            </p>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() =>
+                              setSelectedGiftCampaignIds((prev) =>
+                                prev.includes(gift.giftCampaignId)
+                                  ? prev.filter((id) => id !== gift.giftCampaignId)
+                                  : [...prev, gift.giftCampaignId]
+                              )
+                            }
+                            className="mt-1 h-5 w-5 rounded border-violet-300 text-violet-600 focus:ring-violet-500"
+                          />
+                        </label>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-violet-500">บิลนี้ยังไม่มีของแถมที่เข้าเงื่อนไข</p>
+                )}
+              </div>
+
               <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4">
                 <label className="mb-2 block text-sm font-bold text-slate-700">ส่วนลดเพิ่มเติม</label>
                 <input
@@ -576,6 +671,14 @@ export default function POSPage() {
                 <div className="mb-2 flex justify-between text-orange-500">
                   <span>ส่วนลดกำหนดเอง</span>
                   <span>{manualDiscount > 0 ? `-฿ ${manualDiscount.toFixed(2)}` : '-'}</span>
+                </div>
+                <div className="mb-2 flex justify-between text-violet-600">
+                  <span>ของแถมที่ลูกค้ารับ</span>
+                  <span>
+                    {selectedGiftCampaigns.length > 0
+                      ? `${selectedGiftCampaigns.length} รายการ • ต้นทุน ฿ ${selectedGiftCost.toFixed(2)}`
+                      : '-'}
+                  </span>
                 </div>
                 <div className="mb-2 flex justify-between text-slate-500">
                   <span>ภาษีมูลค่าเพิ่ม</span>

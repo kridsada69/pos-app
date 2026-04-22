@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/session'
 import { getBestPromotionStack } from '@/lib/promotion-utils'
+import { getApplicableGiftCampaigns } from '@/lib/gift-utils'
 
 type OrderRequestItem = {
   productId: number
@@ -15,6 +16,7 @@ type OrderRequestBody = {
   manualDiscount?: number | string | null
   note?: string | null
   isTaxEnabled?: boolean
+  selectedGiftCampaignIds?: unknown[]
 }
 
 export async function GET(req: Request) {
@@ -43,9 +45,22 @@ export async function GET(req: Request) {
       where,
       include: {
         cashier: { select: { name: true } },
+        giftSelections: true,
         items: {
-          include: { product: { select: { name: true } } }
-        }
+          select: {
+            id: true,
+            quantity: true,
+            price: true,
+            productName: true,
+            company: true,
+            product: {
+              select: {
+                name: true,
+                company: true,
+              },
+            },
+          },
+        },
       },
       orderBy: { createdAt: 'desc' }
     })
@@ -66,6 +81,7 @@ export async function POST(req: Request) {
       manualDiscount,
       note,
       isTaxEnabled,
+      selectedGiftCampaignIds,
     } = (await req.json()) as OrderRequestBody
     
     if (!items || !items.length) {
@@ -74,6 +90,11 @@ export async function POST(req: Request) {
 
     const normalizedManualDiscountInput = Number(manualDiscount) || 0
     const normalizedNote = typeof note === 'string' ? note.trim() : ''
+    const normalizedGiftCampaignIds = Array.isArray(selectedGiftCampaignIds)
+      ? selectedGiftCampaignIds
+          .map((item) => Number(item))
+          .filter((item) => Number.isInteger(item) && item > 0)
+      : []
     const sanitizedItems: OrderRequestItem[] = items
       .map((item) => ({
         productId: Number(item.productId),
@@ -101,7 +122,10 @@ export async function POST(req: Request) {
           id: true,
           name: true,
           price: true,
+          cost: true,
           stock: true,
+          company: true,
+          category: true,
         },
       })
 
@@ -118,7 +142,10 @@ export async function POST(req: Request) {
           productId: product.id,
           quantity: item.quantity,
           price: product.price,
+          cost: product.cost,
           name: product.name,
+          company: product.company,
+          category: product.category,
         }
       })
 
@@ -143,6 +170,28 @@ export async function POST(req: Request) {
       })
 
       const promotionStack = getBestPromotionStack(promotions, lineItems)
+      const giftCampaigns = await prisma.giftCampaign.findMany({
+        where: {
+          isActive: true,
+          ...(normalizedGiftCampaignIds.length > 0 ? { id: { in: normalizedGiftCampaignIds } } : {}),
+        },
+        include: {
+          products: {
+            include: {
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      })
+      const applicableGiftCampaigns = getApplicableGiftCampaigns(giftCampaigns, lineItems)
+      const selectedGiftCampaigns = applicableGiftCampaigns.filter((campaign) =>
+        normalizedGiftCampaignIds.includes(campaign.giftCampaignId)
+      )
       const promotionDiscount = promotionStack.totalPromotionDiscount
       const subtotalAfterPromotion = Math.max(subtotal - promotionDiscount, 0)
       const normalizedManualDiscount = Math.min(
@@ -168,11 +217,25 @@ export async function POST(req: Request) {
           total,
           cashierId: session.userId,
           slipUrl: slipUrl || null,
+          giftSelections: selectedGiftCampaigns.length
+            ? {
+                create: selectedGiftCampaigns.map((gift) => ({
+                  giftCampaignId: gift.giftCampaignId,
+                  giftCampaignName: gift.giftCampaignName,
+                  giftName: gift.giftName,
+                  cost: gift.cost,
+                })),
+              }
+            : undefined,
           items: {
             create: lineItems.map((item) => ({
               productId: item.productId,
               quantity: item.quantity,
-              price: item.price
+              price: item.price,
+              cost: item.cost,
+              productName: item.name,
+              company: item.company,
+              category: item.category,
             }))
           }
         }

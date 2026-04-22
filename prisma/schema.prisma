@@ -38,6 +38,7 @@ model Product {
   updatedAt  DateTime    @updatedAt
   orderItems OrderItem[]
   promotions PromotionProduct[]
+  giftCampaigns GiftCampaignProduct[]
 }
 
 model Order {
@@ -57,6 +58,7 @@ model Order {
   cashier           User        @relation(fields: [cashierId], references: [id])
   items             OrderItem[]
   promotion         Promotion?  @relation(fields: [promotionId], references: [id])
+  giftSelections    OrderGiftSelection[]
 }
 
 model OrderItem {
@@ -65,6 +67,10 @@ model OrderItem {
   productId Int
   quantity  Int
   price     Float
+  cost      Float   @default(0)
+  productName String   @default("")
+  company   String?
+  category  String?
   order     Order   @relation(fields: [orderId], references: [id])
   product   Product @relation(fields: [productId], references: [id])
 }
@@ -82,6 +88,7 @@ model Company {
   id        Int      @id @default(autoincrement())
   name      String   @unique
   createdAt DateTime @default(now())
+  expenseEntries ExpenseEntryCompany[]
 }
 
 model Promotion {
@@ -104,4 +111,61 @@ model PromotionProduct {
   product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@id([promotionId, productId])
+}
+
+model GiftCampaign {
+  id                   Int                   @id @default(autoincrement())
+  name                 String
+  giftName             String
+  cost                 Float
+  appliesToAllProducts Boolean               @default(false)
+  isActive             Boolean               @default(true)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  products             GiftCampaignProduct[]
+  orderSelections      OrderGiftSelection[]
+}
+
+model GiftCampaignProduct {
+  giftCampaignId Int
+  productId      Int
+  giftCampaign   GiftCampaign @relation(fields: [giftCampaignId], references: [id], onDelete: Cascade)
+  product        Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([giftCampaignId, productId])
+}
+
+model OrderGiftSelection {
+  id               Int          @id @default(autoincrement())
+  orderId          Int
+  giftCampaignId   Int
+  giftCampaignName String
+  giftName         String
+  cost             Float
+  createdAt        DateTime     @default(now())
+  order            Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  giftCampaign     GiftCampaign @relation(fields: [giftCampaignId], references: [id])
+
+  @@unique([orderId, giftCampaignId])
+}
+
+model ExpenseEntry {
+  id          Int      @id @default(autoincrement())
+  name        String
+  amount      Float
+  company     String?
+  note        String?
+  expenseDate DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+  companies   ExpenseEntryCompany[]
+}
+
+model ExpenseEntryCompany {
+  expenseEntryId Int
+  companyId      Int
+  expenseEntry   ExpenseEntry @relation(fields: [expenseEntryId], references: [id], onDelete: Cascade)
+  company        Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@id([expenseEntryId, companyId])
 }
