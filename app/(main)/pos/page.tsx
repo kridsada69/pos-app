@@ -53,29 +53,19 @@ export default function POSPage() {
   const [note, setNote] = useState('')
   const [selectedGiftCampaignIds, setSelectedGiftCampaignIds] = useState<number[]>([])
 
-  const fetchActiveProducts = () => {
-    fetch('/api/products?status=active&limit=1000')
+  const fetchPosBootstrap = () => {
+    fetch('/api/pos/bootstrap')
       .then((res) => res.json())
-      .then((json) => setProducts(json.data || []))
-  }
-
-  const fetchActivePromotions = () => {
-    fetch('/api/promotions?status=active')
-      .then((res) => res.json())
-      .then((json) => setPromotions(Array.isArray(json) ? json : []))
-  }
-
-  const fetchActiveGifts = () => {
-    fetch('/api/gifts?status=active')
-      .then((res) => res.json())
-      .then((json) => setGiftCampaigns(Array.isArray(json) ? json : []))
+      .then((json) => {
+        setProducts(json.products || [])
+        setPromotions(Array.isArray(json.promotions) ? json.promotions : [])
+        setGiftCampaigns(Array.isArray(json.gifts) ? json.gifts : [])
+        setCategories(Array.isArray(json.categories) ? json.categories : [])
+      })
   }
 
   useEffect(() => {
-    fetchActiveProducts()
-    fetchActivePromotions()
-    fetchActiveGifts()
-    fetch('/api/categories').then((res) => res.json()).then(setCategories)
+    fetchPosBootstrap()
   }, [])
 
   const addToCart = (product: Product) => {
@@ -252,7 +242,7 @@ export default function POSPage() {
         setIsTaxEnabled(false)
         setSelectedGiftCampaignIds([])
         setIsConfirmModalOpen(false)
-        fetchActiveProducts()
+        fetchPosBootstrap()
       } else {
         const data = await res.json().catch(() => null)
         alert(data?.error || 'Checkout failed')

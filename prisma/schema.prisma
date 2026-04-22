@@ -39,6 +39,10 @@ model Product {
   orderItems OrderItem[]
   promotions PromotionProduct[]
   giftCampaigns GiftCampaignProduct[]
+
+  @@index([status, deletedAt])
+  @@index([category])
+  @@index([company])
 }
 
 model Order {
@@ -59,6 +63,9 @@ model Order {
   items             OrderItem[]
   promotion         Promotion?  @relation(fields: [promotionId], references: [id])
   giftSelections    OrderGiftSelection[]
+
+  @@index([status, createdAt])
+  @@index([cashierId])
 }
 
 model OrderItem {
@@ -73,6 +80,9 @@ model OrderItem {
   category  String?
   order     Order   @relation(fields: [orderId], references: [id])
   product   Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
 }
 
 model Category {
@@ -102,6 +112,8 @@ model Promotion {
   updatedAt           DateTime           @updatedAt
   products            PromotionProduct[]
   orders              Order[]
+
+  @@index([isActive, updatedAt])
 }
 
 model PromotionProduct {
@@ -125,6 +137,8 @@ model GiftCampaign {
   updatedAt            DateTime              @updatedAt
   products             GiftCampaignProduct[]
   orderSelections      OrderGiftSelection[]
+
+  @@index([isActive, updatedAt])
 }
 
 model GiftCampaignProduct {
@@ -161,6 +175,9 @@ model ExpenseEntry {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now()) @updatedAt
   companies   ExpenseEntryCompany[]
+
+  @@index([expenseDate])
+  @@index([company])
 }
 
 model ExpenseEntryCompany {
