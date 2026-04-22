@@ -12,7 +12,7 @@ type ActivityActor = {
 
 type ActivityInput = {
   user?: ActivityActor | null
-  action: 'create' | 'edit' | 'delete' | 'checkout'
+  action: 'create' | 'edit' | 'delete' | 'checkout' | 'login' | 'logout'
   entity: string
   entityId?: string | number | null
   summary: string

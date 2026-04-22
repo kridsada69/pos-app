@@ -22,6 +22,8 @@ const actionLabels: Record<string, string> = {
   edit: 'Edit',
   delete: 'Delete',
   checkout: 'คิดเงิน',
+  login: 'Login',
+  logout: 'Logout',
 }
 
 const actionStyles: Record<string, string> = {
@@ -29,6 +31,8 @@ const actionStyles: Record<string, string> = {
   edit: 'bg-blue-50 text-blue-700',
   delete: 'bg-red-50 text-red-700',
   checkout: 'bg-violet-50 text-violet-700',
+  login: 'bg-cyan-50 text-cyan-700',
+  logout: 'bg-slate-100 text-slate-700',
 }
 
 function formatDateTime(value: string) {
@@ -104,6 +108,8 @@ export default function LogHistoryPage() {
           <option value="edit">Edit</option>
           <option value="delete">Delete</option>
           <option value="checkout">คิดเงิน</option>
+          <option value="login">Login</option>
+          <option value="logout">Logout</option>
         </select>
         <div className="relative">
           <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>

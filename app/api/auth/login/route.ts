@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
+import { recordActivity } from '@/lib/activity-log'
+import { normalizeRole } from '@/lib/roles'
 import { setSession } from '@/lib/session'
 
 export async function POST(req: Request) {
@@ -17,9 +19,27 @@ export async function POST(req: Request) {
     const valid = await bcrypt.compare(password, user.password)
     if (!valid) return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
 
-    await setSession(user.id, user.name, user.username, user.role)
+    const role = normalizeRole(user.role)
 
-    return NextResponse.json({ success: true, user: { id: user.id, username: user.username, name: user.name, role: user.role } })
+    await setSession(user.id, user.name, user.username, role)
+    await recordActivity(req, {
+      user: {
+        id: user.id,
+        username: user.username,
+        name: user.name,
+        role,
+      },
+      action: 'login',
+      entity: 'auth',
+      entityId: user.id,
+      summary: `${user.name} login เข้าระบบ`,
+      metadata: {
+        userId: user.id,
+        username: user.username,
+      },
+    })
+
+    return NextResponse.json({ success: true, user: { id: user.id, username: user.username, name: user.name, role } })
   } catch (error) {
     console.error('Login route failed', error)
 
