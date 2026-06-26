@@ -41,6 +41,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ imageUrl: blob.url })
     }
 
+    if (process.env.VERCEL) {
+      return NextResponse.json(
+        { error: 'BLOB_READ_WRITE_TOKEN is required for image uploads on Vercel.' },
+        { status: 500 }
+      )
+    }
+
     const uploadDir = path.join(process.cwd(), 'public', 'uploads')
     const filePath = path.join(uploadDir, path.basename(pathname))
     const buffer = Buffer.from(await file.arrayBuffer())

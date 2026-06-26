@@ -2,8 +2,51 @@
 import { useState, useEffect, useCallback } from 'react'
 import Image from 'next/image'
 
+type StockProductImageProps = {
+  src?: string | null
+  alt: string
+  icon: string
+}
+
+type Product = {
+  id: number
+  name: string
+  category: string
+  stock: number
+  cost: number
+  price: number
+  company?: string | null
+  imageUrl?: string | null
+  status?: string | null
+}
+
+function StockProductImage({ src, alt, icon }: StockProductImageProps) {
+  const [hasError, setHasError] = useState(false)
+
+  if (!src || hasError) {
+    return (
+      <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 text-xl shadow-inner border border-slate-100/50">
+        <i className={`fas ${icon}`}></i>
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative w-12 h-12 rounded-xl border border-slate-100 overflow-hidden bg-slate-50">
+      <Image
+        src={src}
+        alt={alt}
+        fill
+        sizes="48px"
+        className="object-cover"
+        onError={() => setHasError(true)}
+      />
+    </div>
+  )
+}
+
 export default function StockPage() {
-  const [products, setProducts] = useState<any[]>([])
+  const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<{id: number, name: string, icon?: string}[]>([])
   const [companies, setCompanies] = useState<{id: number, name: string}[]>([])
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -77,7 +120,7 @@ export default function StockPage() {
     setIsModalOpen(true)
   }
 
-  const handleEditProduct = (product: any) => {
+  const handleEditProduct = (product: Product) => {
     setEditingProductId(product.id)
     setFormData({
       name: product.name,
@@ -229,18 +272,11 @@ export default function StockPage() {
               {products.map(product => (
                 <tr key={product.id} onClick={() => handleEditProduct(product)} className="cursor-pointer hover:bg-slate-50 transition">
                   <td className="px-6 py-4">
-                    {product.imageUrl ? (
-                      <div className="relative w-12 h-12 rounded-xl border border-slate-100 overflow-hidden">
-                        <Image src={product.imageUrl} alt={product.name} fill className="object-cover" />
-                      </div>
-                    ) : (() => {
-                      const catIcon = categories.find(c => c.name === product.category)?.icon || 'fa-box';
-                      return (
-                        <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 text-xl shadow-inner border border-slate-100/50">
-                          <i className={`fas ${catIcon}`}></i>
-                        </div>
-                      );
-                    })()}
+                    <StockProductImage
+                      src={product.imageUrl}
+                      alt={product.name}
+                      icon={categories.find(c => c.name === product.category)?.icon || 'fa-box'}
+                    />
                   </td>
                   <td className="px-6 py-6 font-bold text-slate-800">{product.name}</td>
                   <td className="px-6 py-6 text-slate-500">{product.company || '-'}</td>
@@ -475,4 +511,3 @@ export default function StockPage() {
     </>
   )
 }
-
