@@ -38,6 +38,7 @@ function StockProductImage({ src, alt, icon }: StockProductImageProps) {
         alt={alt}
         fill
         sizes="48px"
+        unoptimized
         className="object-cover"
         onError={() => setHasError(true)}
       />

@@ -312,7 +312,13 @@ export default function POSPage() {
                     }`}
                   >
                     {product.imageUrl ? (
-                      <Image src={product.imageUrl} alt={product.name} fill className="object-cover" />
+                      <Image
+                        src={product.imageUrl}
+                        alt={product.name}
+                        fill
+                        unoptimized
+                        className="object-cover"
+                      />
                     ) : (
                       <i className={`fas ${catIcon}`}></i>
                     )}
