@@ -20,6 +20,16 @@ type OrderRequestBody = {
   selectedGiftCampaignIds?: unknown[]
 }
 
+class OrderValidationError extends Error {
+  status: number
+
+  constructor(message: string, status = 400) {
+    super(message)
+    this.name = 'OrderValidationError'
+    this.status = status
+  }
+}
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url)
@@ -134,10 +144,12 @@ export async function POST(req: Request) {
       const lineItems = sanitizedItems.map((item) => {
         const product = productMap.get(item.productId)
         if (!product) {
-          throw new Error(`PRODUCT_NOT_FOUND:${item.productId}`)
+          throw new OrderValidationError(`ไม่พบสินค้ารหัส ${item.productId} กรุณารีเฟรชหน้าแล้วลองใหม่`)
         }
         if (product.stock < item.quantity) {
-          throw new Error(`INSUFFICIENT_STOCK:${item.productId}`)
+          throw new OrderValidationError(
+            `สินค้า ${product.name} คงเหลือ ${product.stock} ชิ้น ไม่พอขาย ${item.quantity} ชิ้น กรุณาเติม stock ก่อนขาย`
+          )
         }
         return {
           productId: product.id,
@@ -268,6 +280,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, order: result })
   } catch (error) {
+    if (error instanceof OrderValidationError) {
+      return NextResponse.json({ error: error.message }, { status: error.status })
+    }
+
     console.error('Internal Server Error:', error)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
