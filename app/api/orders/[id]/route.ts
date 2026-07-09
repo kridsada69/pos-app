@@ -42,21 +42,53 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const { id } = await params
     if (!id) return NextResponse.json({ error: 'Order ID is required' }, { status: 400 })
 
-    const body = await request.json()
-    const { slipUrl } = body
+    const body = (await request.json()) as Record<string, unknown>
+    const hasSlipUrl = Object.prototype.hasOwnProperty.call(body, 'slipUrl')
+    const hasNote = Object.prototype.hasOwnProperty.call(body, 'note')
+
+    if (!hasSlipUrl && !hasNote) {
+      return NextResponse.json({ error: 'No update data provided' }, { status: 400 })
+    }
+
+    const data: { slipUrl?: string | null; note?: string | null } = {}
+
+    if (hasSlipUrl) {
+      if (typeof body.slipUrl !== 'string' && body.slipUrl !== null) {
+        return NextResponse.json({ error: 'Invalid slip URL' }, { status: 400 })
+      }
+      data.slipUrl = body.slipUrl
+    }
+
+    if (hasNote) {
+      if (typeof body.note !== 'string' && body.note !== null) {
+        return NextResponse.json({ error: 'Invalid note' }, { status: 400 })
+      }
+      const normalizedNote = typeof body.note === 'string' ? body.note.trim() : ''
+      data.note = normalizedNote || null
+    }
+
+    const existingOrder = await prisma.order.findUnique({
+      where: { id: Number(id) },
+      select: { id: true, note: true, total: true },
+    })
+
+    if (!existingOrder) {
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    }
 
     const updatedOrder = await prisma.order.update({
       where: { id: Number(id) },
-      data: { slipUrl }
+      data,
     })
     await recordActivity(request, {
       action: 'edit',
       entity: 'order',
       entityId: updatedOrder.id,
-      summary: `แก้ไขบิล #${updatedOrder.id}`,
+      summary: hasNote ? `แก้ไขหมายเหตุบิล #${updatedOrder.id}` : `แก้ไขบิล #${updatedOrder.id}`,
       metadata: {
         orderId: updatedOrder.id,
-        slipUrl: updatedOrder.slipUrl,
+        ...(hasSlipUrl ? { slipUrl: updatedOrder.slipUrl } : {}),
+        ...(hasNote ? { previousNote: existingOrder.note, note: updatedOrder.note } : {}),
         total: updatedOrder.total,
       },
     })

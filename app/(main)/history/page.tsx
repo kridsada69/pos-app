@@ -42,6 +42,9 @@ export default function HistoryPage() {
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isUploading, setIsUploading] = useState<number | null>(null)
+  const [editingNoteOrderId, setEditingNoteOrderId] = useState<number | null>(null)
+  const [noteDraft, setNoteDraft] = useState('')
+  const [savingNoteOrderId, setSavingNoteOrderId] = useState<number | null>(null)
   const [isExporting, setIsExporting] = useState(false)
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -115,6 +118,46 @@ export default function HistoryPage() {
       alert('Failed to upload slip');
     } finally {
       setIsUploading(null);
+    }
+  }
+
+  const startEditingNote = (order: Order) => {
+    setEditingNoteOrderId(order.id)
+    setNoteDraft(order.note || '')
+  }
+
+  const cancelEditingNote = () => {
+    setEditingNoteOrderId(null)
+    setNoteDraft('')
+  }
+
+  const handleSaveOrderNote = async (orderId: number) => {
+    setSavingNoteOrderId(orderId)
+    try {
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note: noteDraft }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        alert(data?.error || 'บันทึกหมายเหตุไม่สำเร็จ')
+        return
+      }
+
+      setOrders((prevOrders) =>
+        prevOrders.map((order) =>
+          order.id === orderId ? { ...order, note: noteDraft.trim() || null } : order
+        )
+      )
+      cancelEditingNote()
+      fetchOrders()
+    } catch (err) {
+      console.error(err)
+      alert('บันทึกหมายเหตุไม่สำเร็จ')
+    } finally {
+      setSavingNoteOrderId(null)
     }
   }
 
@@ -418,8 +461,51 @@ export default function HistoryPage() {
                                       )}
                                     </div>
                                     <div>
-                                      <p className="text-xs font-bold text-slate-400 mb-1">หมายเหตุ</p>
-                                      <p className="whitespace-pre-wrap text-slate-600">{order.note || 'ไม่มี'}</p>
+                                      <div className="mb-1 flex items-center justify-between gap-2">
+                                        <p className="text-xs font-bold text-slate-400">หมายเหตุ</p>
+                                        {editingNoteOrderId !== order.id && (
+                                          <button
+                                            type="button"
+                                            onClick={() => startEditingNote(order)}
+                                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 text-blue-600 transition hover:bg-blue-100"
+                                            title="แก้ไขหมายเหตุ"
+                                            aria-label="แก้ไขหมายเหตุ"
+                                          >
+                                            <i className="fas fa-pen text-[11px]"></i>
+                                          </button>
+                                        )}
+                                      </div>
+                                      {editingNoteOrderId === order.id ? (
+                                        <div className="space-y-2">
+                                          <textarea
+                                            value={noteDraft}
+                                            onChange={(e) => setNoteDraft(e.target.value)}
+                                            rows={4}
+                                            className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                                            placeholder="เพิ่มหมายเหตุ"
+                                          />
+                                          <div className="grid grid-cols-2 gap-2">
+                                            <button
+                                              type="button"
+                                              onClick={cancelEditingNote}
+                                              disabled={savingNoteOrderId === order.id}
+                                              className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-500 transition hover:bg-slate-200 disabled:opacity-50"
+                                            >
+                                              ยกเลิก
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleSaveOrderNote(order.id)}
+                                              disabled={savingNoteOrderId === order.id}
+                                              className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-blue-700 disabled:opacity-50"
+                                            >
+                                              {savingNoteOrderId === order.id ? 'กำลังบันทึก...' : 'บันทึก'}
+                                            </button>
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <p className="whitespace-pre-wrap text-slate-600">{order.note || 'ไม่มี'}</p>
+                                      )}
                                     </div>
                                     <div>
                                       <p className="text-xs font-bold text-slate-400 mb-1">ของแถม</p>
