@@ -29,6 +29,7 @@ type ExpenseSummaryRow = {
   canQty: number
   salesAmount: number
   productCost: number
+  manualDiscount: number
   promotionCost: number
   giftCost: number
   otherExpense: number
@@ -43,6 +44,7 @@ type SummaryResponse = {
   overview: {
     salesAmount: number
     productCost: number
+    manualDiscount: number
     promotionCost: number
     giftCost: number
     otherExpense: number
@@ -159,6 +161,7 @@ export default function ExpenseSummaryPage() {
       const csvRows = [
         ['สรุปยอดขาย', formatCurrency(exportSummary.overview.salesAmount)],
         ['ต้นทุนสินค้า', formatCurrency(exportSummary.overview.productCost)],
+        ['ส่วนลดกำหนดเอง', formatCurrency(exportSummary.overview.manualDiscount)],
         ['ต้นทุนโปรโมชั่น', formatCurrency(exportSummary.overview.promotionCost)],
         ['ต้นทุนของแถม', formatCurrency(exportSummary.overview.giftCost)],
         ['ค่าใช้จ่ายอื่น', formatCurrency(exportSummary.overview.otherExpense)],
@@ -175,6 +178,7 @@ export default function ExpenseSummaryPage() {
           'จำนวนกระป๋อง',
           'ยอดขาย',
           'ต้นทุนสินค้า',
+          'ส่วนลดกำหนดเอง',
           'ต้นทุนโปรโมชั่น',
           'ต้นทุนของแถม',
           'ค่าใช้จ่ายอื่น',
@@ -192,6 +196,7 @@ export default function ExpenseSummaryPage() {
           row.canQty,
           row.salesAmount,
           row.productCost,
+          row.manualDiscount,
           row.promotionCost,
           row.giftCost,
           row.otherExpense,
@@ -246,6 +251,7 @@ export default function ExpenseSummaryPage() {
               <td class="num">${row.canQty}</td>
               <td class="num">${formatCurrency(row.salesAmount)}</td>
               <td class="num">${formatCurrency(row.productCost)}</td>
+              <td class="num">${formatCurrency(row.manualDiscount)}</td>
               <td class="num">${formatCurrency(row.promotionCost)}</td>
               <td class="num">${formatCurrency(row.giftCost)}</td>
               <td class="num">${formatCurrency(row.otherExpense)}</td>
@@ -304,6 +310,7 @@ export default function ExpenseSummaryPage() {
                   <th>กระป๋อง</th>
                   <th>ยอดขาย</th>
                   <th>ต้นทุนสินค้า</th>
+                  <th>ส่วนลดกำหนดเอง</th>
                   <th>ต้นทุนโปร</th>
                   <th>ต้นทุนของแถม</th>
                   <th>ค่าใช้จ่ายอื่น</th>
@@ -515,7 +522,7 @@ export default function ExpenseSummaryPage() {
               <p className="text-sm font-semibold text-slate-500">ค่าใช้จ่ายรวม</p>
               <p className="mt-2 text-2xl font-black text-slate-800">{formatCurrency(overview?.totalExpense || 0)}</p>
               <p className="mt-1 text-xs text-slate-400">
-                ของแถม {formatCurrency(overview?.giftCost || 0)} • โปร {formatCurrency(overview?.promotionCost || 0)}
+                ของแถม {formatCurrency(overview?.giftCost || 0)} • โปร {formatCurrency(overview?.promotionCost || 0)} • ลดกำหนดเอง {formatCurrency(overview?.manualDiscount || 0)}
               </p>
             </div>
             <div className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
@@ -653,6 +660,7 @@ export default function ExpenseSummaryPage() {
                 <th className="px-6 py-4 text-right">กระป๋อง</th>
                 <th className="px-6 py-4 text-right">ยอดขาย</th>
                 <th className="px-6 py-4 text-right">ต้นทุนสินค้า</th>
+                <th className="px-6 py-4 text-right">ส่วนลดกำหนดเอง</th>
                 <th className="px-6 py-4 text-right">ต้นทุนโปร</th>
                 <th className="px-6 py-4 text-right">ต้นทุนของแถม</th>
                 <th className="px-6 py-4 text-right">ค่าใช้จ่ายอื่น</th>
@@ -679,6 +687,7 @@ export default function ExpenseSummaryPage() {
                   <td className="px-6 py-4 text-right text-sm font-semibold text-slate-600">{row.canQty}</td>
                   <td className="px-6 py-4 text-right text-sm font-black text-blue-600">{formatCurrency(row.salesAmount)}</td>
                   <td className="px-6 py-4 text-right text-sm font-semibold text-slate-600">{formatCurrency(row.productCost)}</td>
+                  <td className="px-6 py-4 text-right text-sm font-semibold text-slate-600">{formatCurrency(row.manualDiscount)}</td>
                   <td className="px-6 py-4 text-right text-sm font-semibold text-emerald-600">{formatCurrency(row.promotionCost)}</td>
                   <td className="px-6 py-4 text-right text-sm font-semibold text-violet-600">{formatCurrency(row.giftCost)}</td>
                   <td className="px-6 py-4 text-right text-sm font-semibold text-amber-600">{formatCurrency(row.otherExpense)}</td>
@@ -694,7 +703,7 @@ export default function ExpenseSummaryPage() {
 
               {!loading && rows.length === 0 && (
                 <tr>
-                  <td colSpan={14} className="px-6 py-14 text-center text-slate-400">
+                  <td colSpan={15} className="px-6 py-14 text-center text-slate-400">
                     ไม่พบข้อมูลตามเงื่อนไขที่เลือก
                   </td>
                 </tr>

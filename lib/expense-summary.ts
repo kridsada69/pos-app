@@ -14,6 +14,7 @@ type SummaryOrder = {
   subtotal: number
   total: number
   promotionDiscount: number
+  manualDiscount: number
   giftSelections: {
     giftCampaignId: number
     cost: number
@@ -56,6 +57,7 @@ export type ExpenseSummaryRow = {
   salesAmount: number
   productCost: number
   promotionCost: number
+  manualDiscount: number
   giftCost: number
   otherExpense: number
   totalExpense: number
@@ -68,6 +70,7 @@ export type ExpenseSummaryOverview = {
   salesAmount: number
   productCost: number
   promotionCost: number
+  manualDiscount: number
   giftCost: number
   otherExpense: number
   totalExpense: number
@@ -85,6 +88,7 @@ export type ProductCompanyReportRow = {
   salesAmount: number
   productCost: number
   promotionCost: number
+  manualDiscount: number
   giftCost: number
   otherExpense: number
   totalExpense: number
@@ -114,6 +118,21 @@ function getItemCanQty(item: SummaryOrderItem, canCategorySet: Set<string>) {
 
 function getAllocationBase(group: { soldQty: number; canQty: number }) {
   return group.canQty > 0 ? group.canQty : group.soldQty
+}
+
+// Allocate in whole satang so rounded shares still equal the bill discount.
+function allocateMoney(amount: number, weights: number[]) {
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0)
+  const cents = Math.round(amount * 100)
+  let previous = 0
+  let cumulativeWeight = 0
+  return weights.map((weight) => {
+    cumulativeWeight += weight
+    const cumulative = totalWeight > 0 ? Math.round(cents * cumulativeWeight / totalWeight) : 0
+    const share = (cumulative - previous) / 100
+    previous = cumulative
+    return share
+  })
 }
 
 export function buildExpenseSummary({
@@ -150,6 +169,9 @@ export function buildExpenseSummary({
 
     const groupedEntries = Array.from(grouped.entries())
     const baseTotal = groupedEntries.reduce((sum, [, group]) => sum + getAllocationBase(group), 0)
+    const manualDiscountShares = allocateMoney(
+      order.manualDiscount, groupedEntries.map(([, group]) => getAllocationBase(group))
+    )
     const giftCostByCompany = new Map<string, number>()
 
     for (const gift of order.giftSelections) {
@@ -184,14 +206,15 @@ export function buildExpenseSummary({
       }
     }
 
-    for (const [company, group] of groupedEntries) {
+    for (const [groupIndex, [company, group]] of groupedEntries.entries()) {
       const allocationBase = getAllocationBase(group)
       const ratio = baseTotal > 0 ? allocationBase / baseTotal : 0
       const promotionCost = roundMoney(order.promotionDiscount * ratio)
       const giftCost = roundMoney(giftCostByCompany.get(company) || 0)
       const productCost = roundMoney(group.productCost)
       const salesAmount = roundMoney(group.salesAmount)
-      const totalExpense = roundMoney(productCost + promotionCost + giftCost)
+      const manualDiscount = manualDiscountShares[groupIndex]
+      const totalExpense = roundMoney(productCost + promotionCost + manualDiscount + giftCost)
       const grossProfit = roundMoney(salesAmount - totalExpense)
       const avgProfitPerCan =
         group.canQty > 0 ? roundMoney(grossProfit / group.canQty) : roundMoney(grossProfit)
@@ -207,6 +230,7 @@ export function buildExpenseSummary({
         salesAmount,
         productCost,
         promotionCost,
+        manualDiscount,
         giftCost,
         otherExpense: 0,
         totalExpense,
@@ -299,6 +323,7 @@ export function buildExpenseSummary({
         salesAmount: 0,
         productCost: 0,
         promotionCost: 0,
+        manualDiscount: 0,
         giftCost: 0,
         otherExpense: allocatedExpense,
         totalExpense: allocatedExpense,
@@ -325,6 +350,7 @@ export function summarizeExpenseSummaryRows(
     (acc, row) => {
       acc.salesAmount += row.salesAmount
       acc.productCost += row.productCost
+      acc.manualDiscount += row.manualDiscount
       acc.promotionCost += row.promotionCost
       acc.giftCost += row.giftCost
       acc.otherExpense += row.otherExpense
@@ -336,6 +362,7 @@ export function summarizeExpenseSummaryRows(
       salesAmount: 0,
       productCost: 0,
       promotionCost: 0,
+      manualDiscount: 0,
       giftCost: 0,
       otherExpense: 0,
       totalExpense: 0,
@@ -361,6 +388,7 @@ export function summarizeExpenseSummaryRows(
     salesAmount: roundMoney(totals.salesAmount),
     productCost: roundMoney(totals.productCost),
     promotionCost: roundMoney(totals.promotionCost),
+    manualDiscount: roundMoney(totals.manualDiscount),
     giftCost: roundMoney(totals.giftCost),
     otherExpense: roundMoney(totals.otherExpense),
     totalExpense: roundMoney(totals.totalExpense),
@@ -437,6 +465,15 @@ export function buildProductCompanyReport({
       promotionCostByCompany.set(company, roundMoney(order.promotionDiscount * ratio))
     }
 
+    const companyEntries = Array.from(companyGroups.entries())
+    const companyDiscountShares = allocateMoney(order.manualDiscount, companyEntries.map(([, group]) => getAllocationBase(group)))
+    const manualDiscountByProduct = new Map<string, number>()
+    companyEntries.forEach(([company], index) => {
+      const items = productGroups.filter((item) => item.company === company)
+      const shares = allocateMoney(companyDiscountShares[index], items.map(getAllocationBase))
+      items.forEach((item, itemIndex) => manualDiscountByProduct.set(`${item.productId}-${company}`, shares[itemIndex]))
+    })
+
     const giftCostByCompany = new Map<string, number>()
     for (const gift of order.giftSelections) {
       const totalGiftCost = gift.cost * (gift.quantity || 1)
@@ -486,6 +523,7 @@ export function buildProductCompanyReport({
         salesAmount: 0,
         productCost: 0,
         promotionCost: 0,
+        manualDiscount: 0,
         giftCost: 0,
         otherExpense: 0,
         totalExpense: 0,
@@ -493,6 +531,7 @@ export function buildProductCompanyReport({
         avgProfitPerCan: 0,
       }
 
+      current.manualDiscount = roundMoney(current.manualDiscount + (manualDiscountByProduct.get(key) || 0))
       current.soldQty += item.soldQty
       current.canQty += item.canQty
       current.salesAmount = roundMoney(current.salesAmount + item.salesAmount)
@@ -532,7 +571,7 @@ export function buildProductCompanyReport({
   return productRows
     .map((row) => {
       const totalExpense = roundMoney(
-        row.productCost + row.promotionCost + row.giftCost + row.otherExpense
+        row.productCost + row.promotionCost + row.manualDiscount + row.giftCost + row.otherExpense
       )
       const grossProfit = roundMoney(row.salesAmount - totalExpense)
       const avgProfitPerCan =

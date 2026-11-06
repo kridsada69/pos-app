@@ -137,6 +137,7 @@ export default function MasterDataPage() {
               <option value="fa-wine-bottle">ขวด</option>
               <option value="fa-prescription-bottle">กระป๋อง</option>
               <option value="fa-beer">แก้ว</option>
+              <option value="fa-blender">เหยือก</option>
             </select>
             <input 
               type="text" 
@@ -178,6 +179,7 @@ export default function MasterDataPage() {
                             <option value="fa-wine-bottle">ขวด</option>
                             <option value="fa-prescription-bottle">กระป๋อง</option>
                             <option value="fa-beer">แก้ว</option>
+                            <option value="fa-blender">เหยือก</option>
                           </select>
                           <input 
                             type="text" 

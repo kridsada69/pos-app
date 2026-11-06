@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
+import { PAYMENT_METHODS } from '@/lib/payment-methods'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/session'
 import { recordActivity } from '@/lib/activity-log'
 import { getBestPromotionStack } from '@/lib/promotion-utils'
-import { getApplicableGiftCampaigns } from '@/lib/gift-utils'
+import { getApplicableGiftCampaigns, GIFT_GLASS_OPTIONS, giftGlassPattern } from '@/lib/gift-utils'
 
 type OrderRequestItem = {
   productId: number
@@ -16,8 +17,10 @@ type OrderRequestBody = {
   slipUrl?: string
   manualDiscount?: number | string | null
   note?: string | null
+  paymentMethod?: unknown
   isTaxEnabled?: boolean
   selectedGiftCampaignIds?: unknown[]
+  giftGlasses?: Record<string, unknown> | null
 }
 
 class OrderValidationError extends Error {
@@ -91,16 +94,24 @@ export async function POST(req: Request) {
       slipUrl,
       manualDiscount,
       note,
+      paymentMethod,
       isTaxEnabled,
       selectedGiftCampaignIds,
+      giftGlasses,
     } = (await req.json()) as OrderRequestBody
     
     if (!items || !items.length) {
       return NextResponse.json({ error: 'Invalid order data' }, { status: 400 })
     }
 
+    const method = PAYMENT_METHODS.find((option) => option === paymentMethod)
+    if (!method) {
+      return NextResponse.json({ error: 'กรุณาเลือกช่องทางการชำระ' }, { status: 400 })
+    }
+
     const normalizedManualDiscountInput = Number(manualDiscount) || 0
     const normalizedNote = typeof note === 'string' ? note.trim() : ''
+    const orderNote = [normalizedNote, `ช่องทางการชำระ: ${method}`].filter(Boolean).join('\n')
     const normalizedGiftCampaignIds = Array.isArray(selectedGiftCampaignIds)
       ? selectedGiftCampaignIds
           .map((item) => Number(item))
@@ -205,6 +216,22 @@ export async function POST(req: Request) {
       const selectedGiftCampaigns = applicableGiftCampaigns.filter((campaign) =>
         normalizedGiftCampaignIds.includes(campaign.giftCampaignId)
       )
+      const giftSelections = selectedGiftCampaigns.map((gift) => {
+        let giftName = gift.giftName
+        if (giftGlassPattern.test(giftName)) {
+          const glass = GIFT_GLASS_OPTIONS.find((option) => option === giftGlasses?.[gift.giftCampaignId])
+          if (!glass) throw new OrderValidationError('กรุณาเลือกแก้วของแถม')
+          giftName = giftName.replace(giftGlassPattern, glass)
+        }
+
+        return {
+          giftCampaignId: gift.giftCampaignId,
+          giftCampaignName: gift.giftCampaignName,
+          giftName,
+          cost: gift.cost,
+          quantity: gift.giftQuantity,
+        }
+      })
       const promotionDiscount = promotionStack.totalPromotionDiscount
       const subtotalAfterPromotion = Math.max(subtotal - promotionDiscount, 0)
       const normalizedManualDiscount = Math.min(
@@ -225,22 +252,12 @@ export async function POST(req: Request) {
           promotionLabel: promotionStack.promotionLabel || null,
           promotionDiscount,
           manualDiscount: normalizedManualDiscount,
-          note: normalizedNote || null,
+          note: orderNote,
           tax,
           total,
           cashierId: session.userId,
           slipUrl: slipUrl || null,
-          giftSelections: selectedGiftCampaigns.length
-            ? {
-                create: selectedGiftCampaigns.map((gift) => ({
-                  giftCampaignId: gift.giftCampaignId,
-                  giftCampaignName: gift.giftCampaignName,
-                  giftName: gift.giftName,
-                  cost: gift.cost,
-                  quantity: gift.giftQuantity,
-                })),
-              }
-            : undefined,
+          giftSelections: giftSelections.length ? { create: giftSelections } : undefined,
           items: {
             create: lineItems.map((item) => ({
               productId: item.productId,

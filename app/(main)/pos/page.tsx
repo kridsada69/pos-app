@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
+import { PAYMENT_METHODS, type PaymentMethod } from '@/lib/payment-methods'
 import {
   calculatePromotionOutcome,
   getBestPromotionStack,
@@ -10,6 +11,9 @@ import {
 } from '@/lib/promotion-utils'
 import {
   getApplicableGiftCampaigns,
+  GIFT_GLASS_OPTIONS,
+  giftGlassPattern,
+  type GiftGlass,
   type GiftCampaignDefinition,
 } from '@/lib/gift-utils'
 
@@ -38,6 +42,12 @@ type Category = {
 type Promotion = PromotionDefinition
 type GiftCampaign = GiftCampaignDefinition
 
+const paymentMethodIcons: Record<PaymentMethod, string> = {
+  เงินสด: 'fa-money-bill-wave',
+  โอนเงิน: 'fa-right-left',
+  บัตรเครดิต: 'fa-credit-card',
+}
+
 export default function POSPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
@@ -51,6 +61,8 @@ export default function POSPage() {
   const [isTaxEnabled, setIsTaxEnabled] = useState(false)
   const [manualDiscountInput, setManualDiscountInput] = useState('')
   const [note, setNote] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('')
+  const [giftGlasses, setGiftGlasses] = useState<Partial<Record<number, GiftGlass>>>({})
   const [selectedGiftCampaignIds, setSelectedGiftCampaignIds] = useState<number[]>([])
 
   const fetchPosBootstrap = () => {
@@ -171,6 +183,10 @@ export default function POSPage() {
     [applicableGiftCampaigns, selectedGiftCampaignIds]
   )
 
+  const missingGiftGlass = selectedGiftCampaigns.some(
+    (gift) => giftGlassPattern.test(gift.giftName) && !giftGlasses[gift.giftCampaignId]
+  )
+
   const selectedGiftCost = useMemo(
     () => selectedGiftCampaigns.reduce((sum, campaign) => sum + campaign.totalCost, 0),
     [selectedGiftCampaigns]
@@ -198,6 +214,7 @@ export default function POSPage() {
   const total = discountedSubtotal + tax
 
   const confirmCheckout = async () => {
+    if (!paymentMethod || missingGiftGlass || isSubmitting) return
     if (cart.length === 0) return alert('No items in cart')
     setIsSubmitting(true)
 
@@ -223,8 +240,10 @@ export default function POSPage() {
         body: JSON.stringify({
           manualDiscount,
           note: note.trim(),
+          paymentMethod,
           isTaxEnabled,
           selectedGiftCampaignIds,
+          giftGlasses,
           items: cart.map((item) => ({
             productId: item.product.id,
             quantity: item.quantity,
@@ -239,8 +258,10 @@ export default function POSPage() {
         setSlipFile(null)
         setManualDiscountInput('')
         setNote('')
+        setPaymentMethod('')
         setIsTaxEnabled(false)
         setSelectedGiftCampaignIds([])
+        setGiftGlasses({})
         setIsConfirmModalOpen(false)
         fetchPosBootstrap()
       } else {
@@ -591,37 +612,64 @@ export default function POSPage() {
                     {applicableGiftCampaigns.map((gift) => {
                       const checked = selectedGiftCampaignIds.includes(gift.giftCampaignId)
                       return (
-                        <label
+                        <div
                           key={gift.giftCampaignId}
-                          className={`flex cursor-pointer items-start justify-between gap-3 rounded-xl border px-4 py-3 ${
+                          className={`rounded-xl border px-4 py-3 ${
                             checked ? 'border-violet-200 bg-white' : 'border-violet-100 bg-violet-50/80'
                           }`}
                         >
-                          <div>
-                            <p className="text-sm font-bold text-slate-800">{gift.giftCampaignName}</p>
-                            <p className="mt-1 text-xs text-slate-500">
-                              ของแถม: {gift.giftName} x{gift.giftQuantity} • ต้นทุนรวม ฿ {gift.totalCost.toFixed(2)}
-                            </p>
-                            <p className="mt-1 text-xs text-slate-400">
-                              ซื้อครบ {gift.requiredQuantity} ชิ้น แถม 1 • เข้าเงื่อนไข {gift.matchedQuantity} ชิ้น
-                              {!gift.appliesToAllProducts && gift.productNames.length > 0
-                                ? ` • สินค้าร่วมรายการ: ${gift.productNames.join(', ')}`
-                                : ''}
-                            </p>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() =>
-                              setSelectedGiftCampaignIds((prev) =>
-                                prev.includes(gift.giftCampaignId)
-                                  ? prev.filter((id) => id !== gift.giftCampaignId)
-                                  : [...prev, gift.giftCampaignId]
-                              )
-                            }
-                            className="mt-1 h-5 w-5 rounded border-violet-300 text-violet-600 focus:ring-violet-500"
-                          />
-                        </label>
+                          <label className="flex cursor-pointer items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-bold text-slate-800">{gift.giftCampaignName}</p>
+                              <p className="mt-1 text-xs text-slate-500">
+                                ของแถม: {gift.giftName} x{gift.giftQuantity} • ต้นทุนรวม ฿ {gift.totalCost.toFixed(2)}
+                              </p>
+                              <p className="mt-1 text-xs text-slate-400">
+                                ซื้อครบ {gift.requiredQuantity} ชิ้น แถม 1 • เข้าเงื่อนไข {gift.matchedQuantity} ชิ้น
+                                {!gift.appliesToAllProducts && gift.productNames.length > 0
+                                  ? ` • สินค้าร่วมรายการ: ${gift.productNames.join(', ')}`
+                                  : ''}
+                              </p>
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() =>
+                                setSelectedGiftCampaignIds((prev) =>
+                                  prev.includes(gift.giftCampaignId)
+                                    ? prev.filter((id) => id !== gift.giftCampaignId)
+                                    : [...prev, gift.giftCampaignId]
+                                )
+                              }
+                              className="mt-1 h-5 w-5 rounded border-violet-300 text-violet-600 focus:ring-violet-500"
+                            />
+                          </label>
+                          {checked && giftGlassPattern.test(gift.giftName) && (
+                            <fieldset disabled={isSubmitting} className="mt-3 border-t border-violet-100 pt-3">
+                              <legend className="text-xs font-bold text-violet-700">
+                                เลือกแก้วของแถม <span className="text-red-500" aria-hidden="true">*</span>
+                              </legend>
+                              <div className="grid grid-cols-2 gap-2">
+                                {GIFT_GLASS_OPTIONS.map((glass) => (
+                                  <label key={glass} className="relative">
+                                    <input
+                                      type="radio"
+                                      name={`giftGlass-${gift.giftCampaignId}`}
+                                      value={glass}
+                                      checked={giftGlasses[gift.giftCampaignId] === glass}
+                                      onChange={() => setGiftGlasses((prev) => ({ ...prev, [gift.giftCampaignId]: glass }))}
+                                      required
+                                      className="peer sr-only"
+                                    />
+                                    <span className="flex min-h-12 cursor-pointer items-center justify-center rounded-xl border border-violet-100 bg-violet-50 px-2 text-center text-sm font-bold text-slate-700 transition hover:border-violet-300 peer-checked:border-violet-500 peer-checked:bg-violet-100 peer-checked:text-violet-800 peer-checked:ring-1 peer-checked:ring-violet-500 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-violet-600">
+                                      {glass}
+                                    </span>
+                                  </label>
+                                ))}
+                              </div>
+                            </fieldset>
+                          )}
+                        </div>
                       )
                     })}
                   </div>
@@ -645,6 +693,33 @@ export default function POSPage() {
                 <p className="mt-2 text-xs text-slate-400">
                   ระบบจะหักไม่เกินยอดก่อนภาษี และตอนนี้ใช้ส่วนลดได้สูงสุด ฿ {subtotalAfterPromotion.toFixed(2)}
                 </p>
+              </div>
+
+              <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4">
+                <fieldset disabled={isSubmitting}>
+                  <legend className="mb-3 text-sm font-bold text-slate-700">
+                    ช่องทางการชำระ <span className="text-red-500" aria-hidden="true">*</span>
+                  </legend>
+                  <div className="grid grid-cols-3 gap-2">
+                    {PAYMENT_METHODS.map((method) => (
+                      <label key={method} className="relative block">
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          value={method}
+                          checked={paymentMethod === method}
+                          onChange={() => setPaymentMethod(method)}
+                          required
+                          className="peer sr-only"
+                        />
+                        <span className="flex h-full min-h-20 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-1 py-3 text-center text-xs font-bold text-slate-600 transition hover:border-blue-300 peer-checked:border-blue-500 peer-checked:bg-blue-50 peer-checked:text-blue-700 peer-checked:ring-1 peer-checked:ring-blue-500 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 peer-disabled:cursor-default peer-disabled:opacity-60 sm:text-sm">
+                          <i className={`fas ${paymentMethodIcons[method]} text-lg`} aria-hidden="true" />
+                          {method}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
               </div>
 
               <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4">
@@ -752,7 +827,7 @@ export default function POSPage() {
               </button>
               <button
                 onClick={confirmCheckout}
-                disabled={isSubmitting}
+                disabled={isSubmitting || !paymentMethod || missingGiftGlass}
                 className="flex-1 rounded-xl bg-blue-600 py-4 text-sm font-bold text-white transition hover:bg-blue-700 disabled:opacity-50"
               >
                 {isSubmitting ? 'กำลังบันทึก...' : 'ตกลง'}

@@ -101,3 +101,8 @@ export function getApplicableGiftCampaigns(
     })
     .filter((campaign): campaign is ApplicableGiftCampaign => Boolean(campaign))
 }
+
+export const GIFT_GLASS_OPTIONS = ['แก้วราส', 'แก้วบีเหิน'] as const
+export type GiftGlass = (typeof GIFT_GLASS_OPTIONS)[number]
+
+export const giftGlassPattern = /(?:แก้วราส|แก้วบีเหิน)(?=\s*(?:\+|$))/
